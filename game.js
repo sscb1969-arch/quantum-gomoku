@@ -912,6 +912,35 @@ function mainLoop(timestamp) {
 }
 
 /* =========================
+   Escape Key → Start Screen
+   ========================= */
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    // ゲーム状態リセット
+    gameStarted = false;
+    gameOver = false;
+    aiMode = false;
+    selectedRule = null;
+
+    // 盤面リセット
+    board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
+    probData = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
+    winPositions = [];
+    hoverPos = null;
+    placedCount = 0;
+
+    // 各種残数リセット
+    blackQLeft = 3;
+    whiteQLeft = 3;
+    blackZLeft = 1;
+    whiteZLeft = 1;
+
+    currentPlayer = 1;
+    updateNextProb();
+  }
+});
+
+/* =========================
    Start Game
    ========================= */
 updateNextProb();
