@@ -90,15 +90,94 @@ function drawInfoPanel() {
   const panelX = SCREEN_SIZE;
   const panelY = 0;
 
+  // 背景
   ctx.fillStyle = "#c8aa78";
   ctx.fillRect(panelX, panelY, INFO_WIDTH, WINDOW_HEIGHT);
   ctx.lineWidth = 4;
   ctx.strokeStyle = "#503214";
   ctx.strokeRect(panelX, panelY, INFO_WIDTH, WINDOW_HEIGHT);
 
+  // タイトル
   ctx.fillStyle = "#28140a";
   ctx.font = "bold 32px Meiryo";
-  ctx.fillText("情報", panelX + 60, 50);
+  ctx.textAlign = "left";
+  ctx.fillText("情報", panelX + 55, 45);
+
+  let y = 110;   // ← ここから下の項目の基準位置
+  const line = 45; // 行間
+
+  // 手番
+  drawCircle(panelX + 30, y - 5, 12, currentPlayer === 1 ? BLACK_STONE : WHITE_STONE, 2);
+  ctx.font = "24px Meiryo";
+  ctx.fillText(`手番：${currentPlayer === 1 ? "黒" : "白"}`, panelX + 60, y);
+
+  // 次の石
+  y += line;
+  drawCircle(panelX + 30, y - 5, 12, currentPlayer === 1 ? BLACK_STONE : WHITE_STONE, 2);
+  ctx.fillText(`次石：${nextProb}`, panelX + 60, y);
+
+  // 置いた石
+  y += line;
+  ctx.fillText(`置いた石：${countStones()}`, panelX + 20, y);
+
+  // 仕切り
+  y += 25;
+  ctx.strokeStyle = "#503214";
+  ctx.beginPath();
+  ctx.moveTo(panelX + 10, y);
+  ctx.lineTo(panelX + INFO_WIDTH - 10, y);
+  ctx.stroke();
+
+  // 勝利数
+  y += line;
+  drawCircle(panelX + 30, y - 5, 12, BLACK_STONE, 2);
+  ctx.fillText(`黒：${blackWins}勝`, panelX + 60, y);
+
+  y += line;
+  drawCircle(panelX + 30, y - 5, 12, WHITE_STONE, 2);
+  ctx.fillText(`白：${whiteWins}勝`, panelX + 60, y);
+
+  // ルール2のポイント表示
+  if (selectedRule === 2) {
+    y += 25;
+    ctx.beginPath();
+    ctx.moveTo(panelX + 10, y);
+    ctx.lineTo(panelX + INFO_WIDTH - 10, y);
+    ctx.stroke();
+
+    y += line;
+    ctx.fillText(`黒Pt：${blackPoints}`, panelX + 20, y);
+
+    y += line;
+    ctx.fillText(`白Pt：${whitePoints}`, panelX + 20, y);
+
+    y += 25;
+    ctx.beginPath();
+    ctx.moveTo(panelX + 10, y);
+    ctx.lineTo(panelX + INFO_WIDTH - 10, y);
+    ctx.stroke();
+
+    y += line;
+    ctx.fillText(`黒Q残：${blackQLeft}`, panelX + 20, y);
+
+    y += line;
+    ctx.fillText(`白Q残：${whiteQLeft}`, panelX + 20, y);
+  }
+
+  // Z残
+  y += 25;
+  ctx.beginPath();
+  ctx.moveTo(panelX + 10, y);
+  ctx.lineTo(panelX + INFO_WIDTH - 10, y);
+  ctx.stroke();
+
+  y += line;
+  ctx.fillText(`黒Z残：${blackZLeft}`, panelX + 20, y);
+
+  y += line;
+  ctx.fillText(`白Z残：${whiteZLeft}`, panelX + 20, y);
+}
+
 
   const turnText = currentPlayer === 1 ? "黒" : "白";
   const stoneColor = currentPlayer === 1 ? BLACK_STONE : WHITE_STONE;
