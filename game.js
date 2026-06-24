@@ -751,9 +751,33 @@ canvas.addEventListener("mousedown", (e) => {
 });
 
 /* =========================
-   Keyboard Input
+   Keyboard Input（完成版）
    ========================= */
 window.addEventListener("keydown", (e) => {
+
+  /* --- Escキー：開始画面に戻る --- */
+  if (e.key === "Escape") {
+    gameStarted = false;
+    gameOver = false;
+    aiMode = false;
+    selectedRule = null;
+
+    board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
+    probData = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
+    winPositions = [];
+    hoverPos = null;
+    placedCount = 0;
+
+    blackQLeft = 3;
+    whiteQLeft = 3;
+    blackZLeft = 1;
+    whiteZLeft = 1;
+
+    currentPlayer = 1;
+    updateNextProb();
+    return;
+  }
+
   /* --- Start Screen --- */
   if (!gameStarted) {
     if (e.key === "1") {
@@ -819,11 +843,13 @@ window.addEventListener("keydown", (e) => {
     if (currentPlayer === 1 && blackQLeft <= 0) return;
     if (currentPlayer === 2 && whiteQLeft <= 0) return;
 
+    // ① 確率石を黒/白に確定（変化を見せる）
     const changed = applyProbability();
 
     if (currentPlayer === 1) blackQLeft--;
     else whiteQLeft--;
 
+    // ② 勝敗チェック
     let winnerFound = false;
     for (let cy = 0; cy < BOARD_SIZE; cy++) {
       for (let cx = 0; cx < BOARD_SIZE; cx++) {
@@ -839,7 +865,12 @@ window.addEventListener("keydown", (e) => {
       if (winnerFound) break;
     }
 
-    if (!winnerFound) revertToGray(changed);
+    // ③ 勝敗なし → 元に戻す（0.5秒後）
+    if (!winnerFound) {
+      setTimeout(() => {
+        revertToGray(changed);
+      }, 500);
+    }
   }
 });
 /* =========================
@@ -910,35 +941,6 @@ function mainLoop(timestamp) {
 
   requestAnimationFrame(mainLoop);
 }
-
-/* =========================
-   Escape Key → Start Screen
-   ========================= */
-window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    // ゲーム状態リセット
-    gameStarted = false;
-    gameOver = false;
-    aiMode = false;
-    selectedRule = null;
-
-    // 盤面リセット
-    board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
-    probData = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
-    winPositions = [];
-    hoverPos = null;
-    placedCount = 0;
-
-    // 各種残数リセット
-    blackQLeft = 3;
-    whiteQLeft = 3;
-    blackZLeft = 1;
-    whiteZLeft = 1;
-
-    currentPlayer = 1;
-    updateNextProb();
-  }
-});
 
 /* =========================
    Start Game
