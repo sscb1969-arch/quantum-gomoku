@@ -1,6 +1,6 @@
 /* =========================
    Quantum Gomoku - Browser Edition
-   game.js  (Part 1 完全版)
+   完全統合版 game.js (Part1)
    ========================= */
 
 const BOARD_SIZE = 15;
@@ -58,6 +58,10 @@ let fadingIn = false;
 let showStartMessage = false;
 let startMessageTime = 0;
 
+/* --- 隠しコマンド（上上下下左右左右BA） --- */
+let secretBuffer = "";
+const SECRET_CODE = "uuddlrlrba";
+
 /* =========================
    Utility
    ========================= */
@@ -86,147 +90,51 @@ function startFadeIn(duration = 800) {
   function loop() {
     const t = (performance.now() - start) / duration;
     fadeAlpha = Math.max(0, 1 - t);
-    if (fadeAlpha > 0) {
-      requestAnimationFrame(loop);
-    } else {
-      fadingIn = false;
+    if (fadeAlpha > 0) requestAnimationFrame(loop);
+    else fadingIn = false;
+  }
+
+  requestAnimationFrame(loop);
+}
+
+/* =========================
+   Stone Fade Animation（Promise版）
+   ========================= */
+function animateStoneFadeAsync(x, y, fromP, toPlayer, duration = 400) {
+  return new Promise((resolve) => {
+    const start = performance.now();
+
+    function loop() {
+      const now = performance.now();
+      const t = Math.min(1, (now - start) / duration);
+
+      const ratio = fromP / 100;
+      const gray = Math.floor(255 * (1 - ratio));
+      const fromColor = { r: gray, g: gray, b: gray };
+
+      const toColor = toPlayer === 1
+        ? { r: 0, g: 0, b: 0 }
+        : { r: 255, g: 255, b: 255 };
+
+      const r = Math.floor(fromColor.r + (toColor.r - fromColor.r) * t);
+      const g = Math.floor(fromColor.g + (toColor.g - fromColor.g) * t);
+      const b = Math.floor(fromColor.b + (toColor.b - fromColor.b) * t);
+
+      drawBoard();
+      const cx = MARGIN + x * CELL_SIZE;
+      const cy = MARGIN + y * CELL_SIZE;
+      drawCircle(cx, cy, STONE_RADIUS, `rgb(${r},${g},${b})`, 2, "#ff0000");
+
+      if (t < 1) requestAnimationFrame(loop);
+      else resolve();
     }
-  }
 
-  requestAnimationFrame(loop);
+    requestAnimationFrame(loop);
+  });
 }
-
 /* =========================
-   Stone Fade Animation（観測時の滑らかな変化）
+   Drawing（続き）
    ========================= */
-function animateStoneFade(x, y, fromP, toPlayer, duration = 500) {
-  const start = performance.now();
-
-  function loop() {
-    const now = performance.now();
-    const t = Math.min(1, (now - start) / duration);
-
-    const ratio = fromP / 100;
-    const gray = Math.floor(255 * (1 - ratio));
-    const fromColor = { r: gray, g: gray, b: gray };
-
-    const toColor = toPlayer === 1
-      ? { r: 0, g: 0, b: 0 }
-      : { r: 255, g: 255, b: 255 };
-
-    const r = Math.floor(fromColor.r + (toColor.r - fromColor.r) * t);
-    const g = Math.floor(fromColor.g + (toColor.g - fromColor.g) * t);
-    const b = Math.floor(fromColor.b + (toColor.b - fromColor.b) * t);
-
-    drawBoard();
-    const cx = MARGIN + x * CELL_SIZE;
-    const cy = MARGIN + y * CELL_SIZE;
-    drawCircle(cx, cy, STONE_RADIUS, `rgb(${r},${g},${b})`, 2, "#ff0000");
-
-    if (t < 1) requestAnimationFrame(loop);
-  }
-
-  requestAnimationFrame(loop);
-}
-
-/* =========================
-   Drawing
-   ========================= */
-function drawCircle(x, y, r, color, lineWidth = 0, strokeColor = "#000") {
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  if (color) {
-    ctx.fillStyle = color;
-    ctx.fill();
-  }
-  if (lineWidth > 0) {
-    ctx.lineWidth = lineWidth;
-    ctx.strokeStyle = strokeColor;
-    ctx.stroke();
-  }
-}
-
-function drawInfoPanel() {
-  const panelX = SCREEN_SIZE;
-  const panelY = 0;
-
-  ctx.fillStyle = "#c8aa78";
-  ctx.fillRect(panelX, panelY, INFO_WIDTH, WINDOW_HEIGHT);
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = "#503214";
-  ctx.strokeRect(panelX, panelY, INFO_WIDTH, WINDOW_HEIGHT);
-
-  ctx.fillStyle = "#28140a";
-  ctx.font = "bold 32px Meiryo";
-  ctx.textAlign = "left";
-  ctx.fillText("情報", panelX + 55, 45);
-
-  let y = 110;
-  const line = 45;
-
-  drawCircle(panelX + 30, y - 5, 12, currentPlayer === 1 ? BLACK_STONE : WHITE_STONE, 2);
-  ctx.font = "24px Meiryo";
-  ctx.fillText(`手番：${currentPlayer === 1 ? "黒" : "白"}`, panelX + 60, y);
-
-  y += line;
-  drawCircle(panelX + 30, y - 5, 12, currentPlayer === 1 ? BLACK_STONE : WHITE_STONE, 2);
-  ctx.fillText(`次石：${nextProb}`, panelX + 60, y);
-
-  y += line;
-  ctx.fillText(`置いた石：${countStones()}`, panelX + 20, y);
-
-  y += 25;
-  ctx.beginPath();
-  ctx.moveTo(panelX + 10, y);
-  ctx.lineTo(panelX + INFO_WIDTH - 10, y);
-  ctx.stroke();
-
-  y += line;
-  drawCircle(panelX + 30, y - 5, 12, BLACK_STONE, 2);
-  ctx.fillText(`黒：${blackWins}勝`, panelX + 60, y);
-
-  y += line;
-  drawCircle(panelX + 30, y - 5, 12, WHITE_STONE, 2);
-  ctx.fillText(`白：${whiteWins}勝`, panelX + 60, y);
-
-  if (selectedRule === 2) {
-    y += 25;
-    ctx.beginPath();
-    ctx.moveTo(panelX + 10, y);
-    ctx.lineTo(panelX + INFO_WIDTH - 10, y);
-    ctx.stroke();
-
-    y += line;
-    ctx.fillText(`黒Pt：${blackPoints}`, panelX + 20, y);
-
-    y += line;
-    ctx.fillText(`白Pt：${whitePoints}`, panelX + 20, y);
-
-    y += 25;
-    ctx.beginPath();
-    ctx.moveTo(panelX + 10, y);
-    ctx.lineTo(panelX + INFO_WIDTH - 10, y);
-    ctx.stroke();
-
-    y += line;
-    ctx.fillText(`黒Q残：${blackQLeft}`, panelX + 20, y);
-
-    y += line;
-    ctx.fillText(`白Q残：${whiteQLeft}`, panelX + 20, y);
-  }
-
-  y += 25;
-  ctx.beginPath();
-  ctx.moveTo(panelX + 10, y);
-  ctx.lineTo(panelX + INFO_WIDTH - 10, y);
-  ctx.stroke();
-
-  y += line;
-  ctx.fillText(`黒Z残：${blackZLeft}`, panelX + 20, y);
-
-  y += line;
-  ctx.fillText(`白Z残：${whiteZLeft}`, panelX + 20, y);
-}
 
 function drawBoard() {
   ctx.fillStyle = BG_COLOR;
@@ -234,6 +142,7 @@ function drawBoard() {
 
   ctx.strokeStyle = LINE_COLOR;
   ctx.lineWidth = 1;
+
   for (let i = 0; i < BOARD_SIZE; i++) {
     ctx.beginPath();
     ctx.moveTo(MARGIN, MARGIN + i * CELL_SIZE);
@@ -374,21 +283,25 @@ function checkWin(x, y, player) {
 }
 
 /* =========================
-   Probability Observation
+   Probability Observation（逐次アニメーション）
    ========================= */
-function applyProbability() {
+async function applyProbabilityAnimated() {
   const changed = [];
+
   for (let y = 0; y < BOARD_SIZE; y++) {
     for (let x = 0; x < BOARD_SIZE; x++) {
       if (board[y][x] === 3 || board[y][x] === 4) {
         const p = probData[y][x];
         const newVal = Math.random() * 100 < p ? 1 : 2;
-        animateStoneFade(x, y, p, newVal, 500);
+
+        await animateStoneFadeAsync(x, y, p, newVal, 400);
+
         board[y][x] = newVal;
         changed.push([x, y]);
       }
     }
   }
+
   return changed;
 }
 
@@ -396,13 +309,12 @@ function revertToGray(changed) {
   for (const [x, y] of changed) {
     const p = probData[y][x];
     if (p == null) continue;
-    if (p >= 50) board[y][x] = 3;
-    else board[y][x] = 4;
+    board[y][x] = p >= 50 ? 3 : 4;
   }
 }
 
 /* =========================
-   Rule 1 / Rule 2 Winner
+   Winner Display
    ========================= */
 function calculatePoints() {
   const stones = countStones();
@@ -458,7 +370,6 @@ function showWinnerRule1(player, positions) {
   }
   loop();
 }
-
 function showWinnerRule2(player, positions) {
   winPositions = positions;
   const pts = calculatePoints();
@@ -677,6 +588,47 @@ function doResetIfNeeded() {
 }
 
 /* =========================
+   Secret Command（相手の石の半分を奪う）
+   ========================= */
+async function activateSecretCommand() {
+  const enemy = currentPlayer === 1 ? 2 : 1;
+  const enemyStones = [];
+
+  for (let y = 0; y < BOARD_SIZE; y++) {
+    for (let x = 0; x < BOARD_SIZE; x++) {
+      if (board[y][x] === enemy) {
+        enemyStones.push([x, y]);
+      }
+    }
+  }
+
+  if (enemyStones.length === 0) return;
+
+  let convertCount = Math.floor(enemyStones.length / 2);
+  if (convertCount <= 0) convertCount = 1;
+
+  for (let i = enemyStones.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [enemyStones[i], enemyStones[j]] = [enemyStones[j], enemyStones[i]];
+  }
+
+  for (let i = 0; i < convertCount; i++) {
+    const [x, y] = enemyStones[i];
+
+    await animateStoneFadeAsync(x, y, 50, currentPlayer, 400);
+
+    board[y][x] = currentPlayer;
+
+    const win = checkWin(x, y, currentPlayer);
+    if (win.length > 0) {
+      if (selectedRule === 1) showWinnerRule1(currentPlayer, win);
+      else showWinnerRule2(currentPlayer, win);
+      return;
+    }
+  }
+}
+
+/* =========================
    Mouse Move
    ========================= */
 canvas.addEventListener("mousemove", (e) => {
@@ -691,9 +643,9 @@ canvas.addEventListener("mousemove", (e) => {
 });
 
 /* =========================
-   Mouse Click (Place Stone)
+   Mouse Click
    ========================= */
-canvas.addEventListener("mousedown", (e) => {
+canvas.addEventListener("mousedown", async (e) => {
   if (!gameStarted || gameOver) return;
   if (aiMode && currentPlayer === 2) return;
 
@@ -707,14 +659,12 @@ canvas.addEventListener("mousedown", (e) => {
   if (x < 0 || x >= BOARD_SIZE || y < 0 || y >= BOARD_SIZE) return;
   if (board[y][x] !== 0) return;
 
-  if (nextProb >= 50) board[y][x] = 3;
-  else board[y][x] = 4;
-
+  board[y][x] = nextProb >= 50 ? 3 : 4;
   probData[y][x] = nextProb;
   placedCount++;
 
   if (selectedRule === 1 && placedCount % 10 === 0) {
-    const changed = applyProbability();
+    const changed = await applyProbabilityAnimated();
 
     let winnerFound = false;
     for (let cy = 0; cy < BOARD_SIZE; cy++) {
@@ -732,9 +682,7 @@ canvas.addEventListener("mousedown", (e) => {
     }
 
     if (!winnerFound) {
-      setTimeout(() => {
-        revertToGray(changed);
-      }, 2000);
+      setTimeout(() => revertToGray(changed), 2000);
     }
   }
 
@@ -743,9 +691,33 @@ canvas.addEventListener("mousedown", (e) => {
 });
 
 /* =========================
-   Keyboard Input（完成版）
+   Keyboard Input
    ========================= */
-window.addEventListener("keydown", (e) => {
+window.addEventListener("keydown", async (e) => {
+
+  /* --- 隠しコマンド入力 --- */
+  const keyMap = {
+    "ArrowUp": "u",
+    "ArrowDown": "d",
+    "ArrowLeft": "l",
+    "ArrowRight": "r",
+    "b": "b",
+    "a": "a"
+  };
+
+  if (keyMap[e.key]) {
+    secretBuffer += keyMap[e.key];
+    if (secretBuffer.length > SECRET_CODE.length) {
+      secretBuffer = secretBuffer.slice(-SECRET_CODE.length);
+    }
+    if (secretBuffer === SECRET_CODE) {
+      secretBuffer = "";
+      await activateSecretCommand();
+      return;
+    }
+  }
+
+  /* --- Esc：開始画面へ --- */
   if (e.key === "Escape") {
     gameStarted = false;
     gameOver = false;
@@ -769,6 +741,7 @@ window.addEventListener("keydown", (e) => {
     return;
   }
 
+  /* --- Start Screen --- */
   if (!gameStarted) {
     if (e.key === "1" || e.key === "2" || e.key === "3") {
       selectedRule = e.key === "1" ? 1 : e.key === "2" ? 2 : 1;
@@ -785,11 +758,13 @@ window.addEventListener("keydown", (e) => {
     return;
   }
 
+  /* --- Reset --- */
   if (e.key === " " && gameOver) {
     resetGame();
     startFadeIn();
   }
 
+  /* --- Z Key --- */
   if (e.key.toLowerCase() === "z" && !gameOver) {
     if (!hoverPos) return;
 
@@ -798,8 +773,6 @@ window.addEventListener("keydown", (e) => {
 
     if (currentPlayer === 1 && blackZLeft <= 0) return;
     if (currentPlayer === 2 && whiteZLeft <= 0) return;
-
-    if (![0, 1, 2, 3, 4].includes(board[y][x])) return;
 
     zEffectAnimation(x, y, currentPlayer);
     showZMessage(currentPlayer);
@@ -820,11 +793,12 @@ window.addEventListener("keydown", (e) => {
     }
   }
 
+  /* --- Q Key（Rule2 観測） --- */
   if (selectedRule === 2 && e.key.toLowerCase() === "q" && !gameOver) {
     if (currentPlayer === 1 && blackQLeft <= 0) return;
     if (currentPlayer === 2 && whiteQLeft <= 0) return;
 
-    const changed = applyProbability();
+    const changed = await applyProbabilityAnimated();
 
     if (currentPlayer === 1) blackQLeft--;
     else whiteQLeft--;
@@ -845,9 +819,7 @@ window.addEventListener("keydown", (e) => {
     }
 
     if (!winnerFound) {
-      setTimeout(() => {
-        revertToGray(changed);
-      }, 2000);
+      setTimeout(() => revertToGray(changed), 2000);
     }
   }
 });
@@ -855,7 +827,7 @@ window.addEventListener("keydown", (e) => {
 /* =========================
    Main Loop
    ========================= */
-function mainLoop(timestamp) {
+async function mainLoop(timestamp) {
   const dt = timestamp - lastTime;
   lastTime = timestamp;
 
@@ -875,14 +847,12 @@ function mainLoop(timestamp) {
         if (pos) {
           const [x, y] = pos;
 
-          if (nextProb >= 50) board[y][x] = 3;
-          else board[y][x] = 4;
-
+          board[y][x] = nextProb >= 50 ? 3 : 4;
           probData[y][x] = nextProb;
           placedCount++;
 
           if (placedCount % 10 === 0) {
-            const changed = applyProbability();
+            const changed = await applyProbabilityAnimated();
 
             let winnerFound = false;
             for (let cy = 0; cy < BOARD_SIZE; cy++) {
@@ -900,9 +870,7 @@ function mainLoop(timestamp) {
             }
 
             if (!winnerFound) {
-              setTimeout(() => {
-                revertToGray(changed);
-              }, 2000);
+              setTimeout(() => revertToGray(changed), 2000);
             }
           }
 
@@ -922,28 +890,4 @@ function mainLoop(timestamp) {
     ctx.fillStyle = "rgba(0,0,0,0.5)";
     ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
 
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 60px Meiryo";
-    ctx.textAlign = "center";
-    ctx.fillText("ゲームスタート！", (SCREEN_SIZE + INFO_WIDTH) / 2, SCREEN_SIZE / 2);
-
-    if (elapsed > 1000) {
-      showStartMessage = false;
-    }
-  }
-
-  if (fadingIn) {
-    ctx.fillStyle = `rgba(0,0,0,${fadeAlpha})`;
-    ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
-  }
-
-  requestAnimationFrame(mainLoop);
-}
-
-/* =========================
-   Start Game
-   ========================= */
-updateNextProb();
-startFadeIn();
-requestAnimationFrame(mainLoop);
-
+    ctx.fill
