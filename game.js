@@ -891,3 +891,28 @@ async function mainLoop(timestamp) {
     ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
 
     ctx.fill
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 60px Meiryo";
+    ctx.textAlign = "center";
+    ctx.fillText("ゲームスタート！", (SCREEN_SIZE + INFO_WIDTH) / 2, SCREEN_SIZE / 2);
+
+    if (elapsed > 1000) {
+      showStartMessage = false;
+    }
+  }
+
+  // フェードイン描画
+  if (fadingIn) {
+    ctx.fillStyle = `rgba(0,0,0,${fadeAlpha})`;
+    ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
+  }
+
+  requestAnimationFrame(mainLoop);
+}
+
+/* =========================
+   Start Game
+   ========================= */
+updateNextProb();
+startFadeIn();
+requestAnimationFrame(mainLoop);
