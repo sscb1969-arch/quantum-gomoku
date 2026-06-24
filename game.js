@@ -178,60 +178,6 @@ function drawInfoPanel() {
   ctx.fillText(`白Z残：${whiteZLeft}`, panelX + 20, y);
 }
 
-
-  const turnText = currentPlayer === 1 ? "黒" : "白";
-  const stoneColor = currentPlayer === 1 ? BLACK_STONE : WHITE_STONE;
-
-  drawCircle(panelX + 30, 110, 12, stoneColor, 2);
-  ctx.font = "24px Meiryo";
-  ctx.fillStyle = "#28140a";
-  ctx.fillText(`手番：${turnText}`, panelX + 60, 115);
-
-  drawCircle(panelX + 30, 160, 12, stoneColor, 2);
-  ctx.fillText(`次の石：${nextProb}`, panelX + 60, 165);
-
-  ctx.fillText(`置いた石：${countStones()}`, panelX + 20, 210);
-
-  ctx.strokeStyle = "#503214";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(panelX + 10, 240);
-  ctx.lineTo(panelX + INFO_WIDTH - 10, 240);
-  ctx.stroke();
-
-  drawCircle(panelX + 30, 290, 12, BLACK_STONE, 2);
-  ctx.fillText(`黒：${blackWins}勝`, panelX + 60, 295);
-
-  drawCircle(panelX + 30, 330, 12, WHITE_STONE, 2);
-  ctx.fillText(`白：${whiteWins}勝`, panelX + 60, 335);
-
-  if (selectedRule === 2) {
-    ctx.beginPath();
-    ctx.moveTo(panelX + 10, 370);
-    ctx.lineTo(panelX + INFO_WIDTH - 10, 370);
-    ctx.stroke();
-
-    ctx.fillText(`黒Pt：${blackPoints}`, panelX + 20, 410);
-    ctx.fillText(`白Pt：${whitePoints}`, panelX + 20, 450);
-
-    ctx.beginPath();
-    ctx.moveTo(panelX + 10, 490);
-    ctx.lineTo(panelX + INFO_WIDTH - 10, 490);
-    ctx.stroke();
-
-    ctx.fillText(`黒Q残：${blackQLeft}`, panelX + 20, 530);
-    ctx.fillText(`白Q残：${whiteQLeft}`, panelX + 20, 570);
-  }
-
-  ctx.beginPath();
-  ctx.moveTo(panelX + 10, 610);
-  ctx.lineTo(panelX + INFO_WIDTH - 10, 610);
-  ctx.stroke();
-
-  ctx.fillText(`黒Z残：${blackZLeft}`, panelX + 20, 650);
-  ctx.fillText(`白Z残：${whiteZLeft}`, panelX + 20, 690);
-}
-
 function drawBoard() {
   ctx.fillStyle = BG_COLOR;
   ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
@@ -298,6 +244,7 @@ function drawBoard() {
 
   drawInfoPanel();
 }
+
 /* =========================
    Start Screen
    ========================= */
@@ -631,6 +578,7 @@ function aiChooseBestMove() {
   }
   return bestMove;
 }
+
 /* =========================
    Z Key (確定石)
    ========================= */
@@ -873,6 +821,7 @@ window.addEventListener("keydown", (e) => {
     }
   }
 });
+
 /* =========================
    Main Loop
    ========================= */
@@ -946,4 +895,6 @@ function mainLoop(timestamp) {
    Start Game
    ========================= */
 updateNextProb();
+requestAnimationFrame(mainLoop);
+
 requestAnimationFrame(mainLoop);
