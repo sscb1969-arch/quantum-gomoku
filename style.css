@@ -1,0 +1,14 @@
+body {
+  margin: 0;
+  background: #333;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-family: "Meiryo", sans-serif;
+}
+
+canvas {
+  background: #f0d9b5;
+  display: block;
+}
