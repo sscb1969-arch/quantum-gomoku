@@ -1,6 +1,6 @@
 /* =========================
    Quantum Gomoku - Browser Edition
-   game.js  (Part 1 完全版)
+   game.js  (Part 1 完全版 + Secret Command)
    ========================= */
 
 const BOARD_SIZE = 15;
@@ -59,6 +59,16 @@ let showStartMessage = false;
 let startMessageTime = 0;
 
 /* =========================
+   ★ Secret Command（追加）
+   ========================= */
+let secretBuffer = [];
+const SECRET_CODE = [
+  "ArrowUp","ArrowUp","ArrowDown","ArrowDown",
+  "ArrowLeft","ArrowRight","ArrowLeft","ArrowRight",
+  "b","a"
+];
+
+/* =========================
    Utility
    ========================= */
 function blinkVisible(speed = 500) {
@@ -74,7 +84,6 @@ function countStones() {
   }
   return c;
 }
-
 /* =========================
    Fade Animation
    ========================= */
@@ -127,6 +136,42 @@ function animateStoneFade(x, y, fromP, toPlayer, duration = 500) {
   }
 
   requestAnimationFrame(loop);
+}
+
+/* =========================
+   ★ Secret Command 用 非同期フェード
+   ========================= */
+function animateStoneFadeAsync(x, y, fromP, toPlayer, duration = 500) {
+  return new Promise((resolve) => {
+    const start = performance.now();
+
+    function loop() {
+      const now = performance.now();
+      const t = Math.min(1, (now - start) / duration);
+
+      const ratio = fromP / 100;
+      const gray = Math.floor(255 * (1 - ratio));
+      const fromColor = { r: gray, g: gray, b: gray };
+
+      const toColor = toPlayer === 1
+        ? { r: 0, g: 0, b: 0 }
+        : { r: 255, g: 255, b: 255 };
+
+      const r = Math.floor(fromColor.r + (toColor.r - fromColor.r) * t);
+      const g = Math.floor(fromColor.g + (toColor.g - fromColor.g) * t);
+      const b = Math.floor(fromColor.b + (toColor.b - fromColor.b) * t);
+
+      drawBoard();
+      const cx = MARGIN + x * CELL_SIZE;
+      const cy = MARGIN + y * CELL_SIZE;
+      drawCircle(cx, cy, STONE_RADIUS, `rgb(${r},${g},${b})`, 2, "#ff0000");
+
+      if (t < 1) requestAnimationFrame(loop);
+      else resolve();
+    }
+
+    requestAnimationFrame(loop);
+  });
 }
 
 /* =========================
@@ -227,7 +272,6 @@ function drawInfoPanel() {
   y += line;
   ctx.fillText(`白Z残：${whiteZLeft}`, panelX + 20, y);
 }
-
 function drawBoard() {
   ctx.fillStyle = BG_COLOR;
   ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
@@ -372,7 +416,6 @@ function checkWin(x, y, player) {
   }
   return [];
 }
-
 /* =========================
    Probability Observation
    ========================= */
@@ -505,7 +548,6 @@ function updateNextProb() {
     nextProb = Math.random() < 0.4 ? 30 : 10;
   }
 }
-
 /* =========================
    AI Evaluation
    ========================= */
@@ -644,7 +686,6 @@ function showZMessage(player) {
     SCREEN_SIZE - 40
   );
 }
-
 /* =========================
    Reset
    ========================= */
@@ -743,9 +784,60 @@ canvas.addEventListener("mousedown", (e) => {
 });
 
 /* =========================
+   ★ Secret Command: 相手の石の半分を奪う
+   ========================= */
+async function activateSecretCommand() {
+  if (gameOver || !gameStarted) return;
+
+  const enemy = currentPlayer === 1 ? 2 : 1;
+  const enemyStones = [];
+
+  for (let y = 0; y < BOARD_SIZE; y++) {
+    for (let x = 0; x < BOARD_SIZE; x++) {
+      if (board[y][x] === enemy) enemyStones.push([x, y]);
+    }
+  }
+
+  if (enemyStones.length === 0) return;
+
+  let convertCount = Math.floor(enemyStones.length / 2);
+  if (convertCount <= 0) convertCount = 1;
+
+  for (let i = enemyStones.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [enemyStones[i], enemyStones[j]] = [enemyStones[j], enemyStones[i]];
+  }
+
+  for (let i = 0; i < convertCount; i++) {
+    const [x, y] = enemyStones[i];
+    await animateStoneFadeAsync(x, y, 50, currentPlayer, 400);
+    board[y][x] = currentPlayer;
+
+    const win = checkWin(x, y, currentPlayer);
+    if (win.length > 0) {
+      if (selectedRule === 1) showWinnerRule1(currentPlayer, win);
+      else showWinnerRule2(currentPlayer, win);
+      return;
+    }
+  }
+}
+
+/* =========================
    Keyboard Input（完成版）
    ========================= */
 window.addEventListener("keydown", (e) => {
+
+  /* --- Secret Command Buffer --- */
+  secretBuffer.push(e.key);
+  if (secretBuffer.length > 10) secretBuffer.shift();
+
+  const lower = secretBuffer.map(k => k.toLowerCase());
+  const target = SECRET_CODE.map(k => k.toLowerCase());
+
+  if (JSON.stringify(lower) === JSON.stringify(target)) {
+    activateSecretCommand();
+  }
+
   if (e.key === "Escape") {
     gameStarted = false;
     gameOver = false;
