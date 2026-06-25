@@ -1,6 +1,6 @@
 /* =========================
    Quantum Gomoku - Browser Edition
-   完全統合版 game.js (Part1)
+   game.js  (Part 1 完全版)
    ========================= */
 
 const BOARD_SIZE = 15;
@@ -58,10 +58,6 @@ let fadingIn = false;
 let showStartMessage = false;
 let startMessageTime = 0;
 
-/* --- 隠しコマンド（上上下下左右左右BA） --- */
-let secretBuffer = "";
-const SECRET_CODE = "uuddlrlrba";
-
 /* =========================
    Utility
    ========================= */
@@ -90,51 +86,147 @@ function startFadeIn(duration = 800) {
   function loop() {
     const t = (performance.now() - start) / duration;
     fadeAlpha = Math.max(0, 1 - t);
-    if (fadeAlpha > 0) requestAnimationFrame(loop);
-    else fadingIn = false;
+    if (fadeAlpha > 0) {
+      requestAnimationFrame(loop);
+    } else {
+      fadingIn = false;
+    }
   }
 
   requestAnimationFrame(loop);
 }
 
 /* =========================
-   Stone Fade Animation（Promise版）
+   Stone Fade Animation（観測時の滑らかな変化）
    ========================= */
-function animateStoneFadeAsync(x, y, fromP, toPlayer, duration = 400) {
-  return new Promise((resolve) => {
-    const start = performance.now();
+function animateStoneFade(x, y, fromP, toPlayer, duration = 500) {
+  const start = performance.now();
 
-    function loop() {
-      const now = performance.now();
-      const t = Math.min(1, (now - start) / duration);
+  function loop() {
+    const now = performance.now();
+    const t = Math.min(1, (now - start) / duration);
 
-      const ratio = fromP / 100;
-      const gray = Math.floor(255 * (1 - ratio));
-      const fromColor = { r: gray, g: gray, b: gray };
+    const ratio = fromP / 100;
+    const gray = Math.floor(255 * (1 - ratio));
+    const fromColor = { r: gray, g: gray, b: gray };
 
-      const toColor = toPlayer === 1
-        ? { r: 0, g: 0, b: 0 }
-        : { r: 255, g: 255, b: 255 };
+    const toColor = toPlayer === 1
+      ? { r: 0, g: 0, b: 0 }
+      : { r: 255, g: 255, b: 255 };
 
-      const r = Math.floor(fromColor.r + (toColor.r - fromColor.r) * t);
-      const g = Math.floor(fromColor.g + (toColor.g - fromColor.g) * t);
-      const b = Math.floor(fromColor.b + (toColor.b - fromColor.b) * t);
+    const r = Math.floor(fromColor.r + (toColor.r - fromColor.r) * t);
+    const g = Math.floor(fromColor.g + (toColor.g - fromColor.g) * t);
+    const b = Math.floor(fromColor.b + (toColor.b - fromColor.b) * t);
 
-      drawBoard();
-      const cx = MARGIN + x * CELL_SIZE;
-      const cy = MARGIN + y * CELL_SIZE;
-      drawCircle(cx, cy, STONE_RADIUS, `rgb(${r},${g},${b})`, 2, "#ff0000");
+    drawBoard();
+    const cx = MARGIN + x * CELL_SIZE;
+    const cy = MARGIN + y * CELL_SIZE;
+    drawCircle(cx, cy, STONE_RADIUS, `rgb(${r},${g},${b})`, 2, "#ff0000");
 
-      if (t < 1) requestAnimationFrame(loop);
-      else resolve();
-    }
+    if (t < 1) requestAnimationFrame(loop);
+  }
 
-    requestAnimationFrame(loop);
-  });
+  requestAnimationFrame(loop);
 }
+
 /* =========================
-   Drawing（続き）
+   Drawing
    ========================= */
+function drawCircle(x, y, r, color, lineWidth = 0, strokeColor = "#000") {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  if (color) {
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+  if (lineWidth > 0) {
+    ctx.lineWidth = lineWidth;
+    ctx.strokeStyle = strokeColor;
+    ctx.stroke();
+  }
+}
+
+function drawInfoPanel() {
+  const panelX = SCREEN_SIZE;
+  const panelY = 0;
+
+  ctx.fillStyle = "#c8aa78";
+  ctx.fillRect(panelX, panelY, INFO_WIDTH, WINDOW_HEIGHT);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#503214";
+  ctx.strokeRect(panelX, panelY, INFO_WIDTH, WINDOW_HEIGHT);
+
+  ctx.fillStyle = "#28140a";
+  ctx.font = "bold 32px Meiryo";
+  ctx.textAlign = "left";
+  ctx.fillText("情報", panelX + 55, 45);
+
+  let y = 110;
+  const line = 45;
+
+  drawCircle(panelX + 30, y - 5, 12, currentPlayer === 1 ? BLACK_STONE : WHITE_STONE, 2);
+  ctx.font = "24px Meiryo";
+  ctx.fillText(`手番：${currentPlayer === 1 ? "黒" : "白"}`, panelX + 60, y);
+
+  y += line;
+  drawCircle(panelX + 30, y - 5, 12, currentPlayer === 1 ? BLACK_STONE : WHITE_STONE, 2);
+  ctx.fillText(`次石：${nextProb}`, panelX + 60, y);
+
+  y += line;
+  ctx.fillText(`置いた石：${countStones()}`, panelX + 20, y);
+
+  y += 25;
+  ctx.beginPath();
+  ctx.moveTo(panelX + 10, y);
+  ctx.lineTo(panelX + INFO_WIDTH - 10, y);
+  ctx.stroke();
+
+  y += line;
+  drawCircle(panelX + 30, y - 5, 12, BLACK_STONE, 2);
+  ctx.fillText(`黒：${blackWins}勝`, panelX + 60, y);
+
+  y += line;
+  drawCircle(panelX + 30, y - 5, 12, WHITE_STONE, 2);
+  ctx.fillText(`白：${whiteWins}勝`, panelX + 60, y);
+
+  if (selectedRule === 2) {
+    y += 25;
+    ctx.beginPath();
+    ctx.moveTo(panelX + 10, y);
+    ctx.lineTo(panelX + INFO_WIDTH - 10, y);
+    ctx.stroke();
+
+    y += line;
+    ctx.fillText(`黒Pt：${blackPoints}`, panelX + 20, y);
+
+    y += line;
+    ctx.fillText(`白Pt：${whitePoints}`, panelX + 20, y);
+
+    y += 25;
+    ctx.beginPath();
+    ctx.moveTo(panelX + 10, y);
+    ctx.lineTo(panelX + INFO_WIDTH - 10, y);
+    ctx.stroke();
+
+    y += line;
+    ctx.fillText(`黒Q残：${blackQLeft}`, panelX + 20, y);
+
+    y += line;
+    ctx.fillText(`白Q残：${whiteQLeft}`, panelX + 20, y);
+  }
+
+  y += 25;
+  ctx.beginPath();
+  ctx.moveTo(panelX + 10, y);
+  ctx.lineTo(panelX + INFO_WIDTH - 10, y);
+  ctx.stroke();
+
+  y += line;
+  ctx.fillText(`黒Z残：${blackZLeft}`, panelX + 20, y);
+
+  y += line;
+  ctx.fillText(`白Z残：${whiteZLeft}`, panelX + 20, y);
+}
 
 function drawBoard() {
   ctx.fillStyle = BG_COLOR;
@@ -142,7 +234,6 @@ function drawBoard() {
 
   ctx.strokeStyle = LINE_COLOR;
   ctx.lineWidth = 1;
-
   for (let i = 0; i < BOARD_SIZE; i++) {
     ctx.beginPath();
     ctx.moveTo(MARGIN, MARGIN + i * CELL_SIZE);
@@ -283,25 +374,21 @@ function checkWin(x, y, player) {
 }
 
 /* =========================
-   Probability Observation（逐次アニメーション）
+   Probability Observation
    ========================= */
-async function applyProbabilityAnimated() {
+function applyProbability() {
   const changed = [];
-
   for (let y = 0; y < BOARD_SIZE; y++) {
     for (let x = 0; x < BOARD_SIZE; x++) {
       if (board[y][x] === 3 || board[y][x] === 4) {
         const p = probData[y][x];
         const newVal = Math.random() * 100 < p ? 1 : 2;
-
-        await animateStoneFadeAsync(x, y, p, newVal, 400);
-
+        animateStoneFade(x, y, p, newVal, 500);
         board[y][x] = newVal;
         changed.push([x, y]);
       }
     }
   }
-
   return changed;
 }
 
@@ -309,12 +396,13 @@ function revertToGray(changed) {
   for (const [x, y] of changed) {
     const p = probData[y][x];
     if (p == null) continue;
-    board[y][x] = p >= 50 ? 3 : 4;
+    if (p >= 50) board[y][x] = 3;
+    else board[y][x] = 4;
   }
 }
 
 /* =========================
-   Winner Display
+   Rule 1 / Rule 2 Winner
    ========================= */
 function calculatePoints() {
   const stones = countStones();
@@ -370,3 +458,491 @@ function showWinnerRule1(player, positions) {
   }
   loop();
 }
+
+function showWinnerRule2(player, positions) {
+  winPositions = positions;
+  const pts = calculatePoints();
+  if (player === 1) {
+    blackWins++;
+    blackPoints += pts;
+  } else {
+    whiteWins++;
+    whitePoints += pts;
+  }
+
+  gameOver = true;
+
+  function loop() {
+    drawBoard();
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "40px Meiryo";
+    ctx.textAlign = "center";
+    ctx.fillText(player === 1 ? "黒の勝ち!" : "白の勝ち!", (SCREEN_SIZE + INFO_WIDTH) / 2, 80);
+
+    ctx.font = "24px Meiryo";
+    ctx.fillText(`黒ポイント：${blackPoints}   白ポイント：${whitePoints}`, (SCREEN_SIZE + INFO_WIDTH) / 2, 150);
+
+    if (blinkVisible(500)) {
+      ctx.fillStyle = "rgb(100,100,200)";
+      ctx.fillText("スペースボタンで再試合", (SCREEN_SIZE + INFO_WIDTH) / 2, SCREEN_SIZE - 10);
+    }
+
+    if (!resetting && gameOver) requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+/* =========================
+   Next Probability
+   ========================= */
+function updateNextProb() {
+  if (currentPlayer === 1) {
+    nextProb = Math.random() < 0.4 ? 90 : 70;
+  } else {
+    nextProb = Math.random() < 0.4 ? 30 : 10;
+  }
+}
+
+/* =========================
+   AI Evaluation
+   ========================= */
+function evaluateBoardForAI() {
+  let score = 0;
+  const dirs = [
+    [1, 0],
+    [0, 1],
+    [1, 1],
+    [1, -1],
+  ];
+
+  function lineScore(count, openEnds, isAI) {
+    let base = 0;
+    if (count >= 5) base = 100000;
+    else if (count === 4) base = openEnds === 2 ? 1000 : 200;
+    else if (count === 3) base = openEnds === 2 ? 150 : 40;
+    else if (count === 2) base = openEnds === 2 ? 30 : 8;
+    else if (count === 1) base = 2;
+    if (!isAI) base = -base * 1.1;
+    return base;
+  }
+
+  for (let y = 0; y < BOARD_SIZE; y++) {
+    for (let x = 0; x < BOARD_SIZE; x++) {
+      if (board[y][x] === 0) continue;
+      const player = board[y][x];
+      const isAI = player === 2;
+
+      for (const [dx, dy] of dirs) {
+        let cnt = 1;
+        let openEnds = 0;
+
+        let nx = x + dx;
+        let ny = y + dy;
+        while (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE && board[ny][nx] === player) {
+          cnt++;
+          nx += dx;
+          ny += dy;
+        }
+        if (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE && board[ny][nx] === 0) openEnds++;
+
+        nx = x - dx;
+        ny = y - dy;
+        while (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE && board[ny][nx] === player) {
+          cnt++;
+          nx -= dx;
+          ny -= dy;
+        }
+        if (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE && board[ny][nx] === 0) openEnds++;
+
+        score += lineScore(cnt, openEnds, isAI);
+      }
+    }
+  }
+
+  const center = (BOARD_SIZE - 1) / 2;
+  for (let y = 0; y < BOARD_SIZE; y++) {
+    for (let x = 0; x < BOARD_SIZE; x++) {
+      if (board[y][x] === 2) {
+        const dist = Math.abs(x - center) + Math.abs(y - center);
+        score += Math.max(0, 10 - dist);
+      }
+    }
+  }
+
+  return score;
+}
+
+/* =========================
+   AI Move Selection
+   ========================= */
+function aiChooseBestMove() {
+  const empty = [];
+  for (let y = 0; y < BOARD_SIZE; y++) {
+    for (let x = 0; x < BOARD_SIZE; x++) {
+      if (board[y][x] === 0) empty.push([x, y]);
+    }
+  }
+  if (empty.length === 0) return null;
+
+  for (const [x, y] of empty) {
+    board[y][x] = 2;
+    if (checkWin(x, y, 2).length > 0) {
+      board[y][x] = 0;
+      return [x, y];
+    }
+    board[y][x] = 0;
+  }
+
+  for (const [x, y] of empty) {
+    board[y][x] = 1;
+    if (checkWin(x, y, 1).length > 0) {
+      board[y][x] = 0;
+      return [x, y];
+    }
+    board[y][x] = 0;
+  }
+
+  let bestScore = -1e9;
+  let bestMove = empty[Math.floor(Math.random() * empty.length)];
+  for (const [x, y] of empty) {
+    board[y][x] = 2;
+    const s = evaluateBoardForAI();
+    board[y][x] = 0;
+    if (s > bestScore) {
+      bestScore = s;
+      bestMove = [x, y];
+    }
+  }
+  return bestMove;
+}
+
+/* =========================
+   Z Key (確定石)
+   ========================= */
+function zEffectAnimation(x, y, player) {
+  const cx = MARGIN + x * CELL_SIZE;
+  const cy = MARGIN + y * CELL_SIZE;
+
+  drawBoard();
+  drawCircle(cx, cy, STONE_RADIUS + 10, "rgba(255,240,100,0.6)", 3, "#ffff00");
+}
+
+function showZMessage(player) {
+  drawBoard();
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
+
+  ctx.fillStyle = "rgb(255,230,120)";
+  ctx.font = "40px Meiryo";
+  ctx.textAlign = "center";
+  ctx.fillText(
+    player === 1 ? "黒の必殺Z!" : "白の必殺Z!",
+    (SCREEN_SIZE + INFO_WIDTH) / 2,
+    SCREEN_SIZE - 40
+  );
+}
+
+/* =========================
+   Reset
+   ========================= */
+function resetGame() {
+  resetting = true;
+  resetStartTime = performance.now();
+}
+
+function doResetIfNeeded() {
+  if (!resetting) return;
+
+  if (performance.now() - resetStartTime >= 500) {
+    board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
+    probData = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
+
+    currentPlayer = 1;
+    gameOver = false;
+    winPositions = [];
+    hoverPos = null;
+    placedCount = 0;
+
+    blackQLeft = 3;
+    whiteQLeft = 3;
+    blackZLeft = 1;
+    whiteZLeft = 1;
+
+    resetting = false;
+    updateNextProb();
+  }
+}
+
+/* =========================
+   Mouse Move
+   ========================= */
+canvas.addEventListener("mousemove", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  const hx = Math.round((mx - MARGIN) / CELL_SIZE);
+  const hy = Math.round((my - MARGIN) / CELL_SIZE);
+
+  hoverPos = [hx, hy];
+});
+
+/* =========================
+   Mouse Click (Place Stone)
+   ========================= */
+canvas.addEventListener("mousedown", (e) => {
+  if (!gameStarted || gameOver) return;
+  if (aiMode && currentPlayer === 2) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  const x = Math.round((mx - MARGIN) / CELL_SIZE);
+  const y = Math.round((my - MARGIN) / CELL_SIZE);
+
+  if (x < 0 || x >= BOARD_SIZE || y < 0 || y >= BOARD_SIZE) return;
+  if (board[y][x] !== 0) return;
+
+  if (nextProb >= 50) board[y][x] = 3;
+  else board[y][x] = 4;
+
+  probData[y][x] = nextProb;
+  placedCount++;
+
+  if (selectedRule === 1 && placedCount % 10 === 0) {
+    const changed = applyProbability();
+
+    let winnerFound = false;
+    for (let cy = 0; cy < BOARD_SIZE; cy++) {
+      for (let cx = 0; cx < BOARD_SIZE; cx++) {
+        if (board[cy][cx] === 1 || board[cy][cx] === 2) {
+          const win = checkWin(cx, cy, board[cy][cx]);
+          if (win.length > 0) {
+            winnerFound = true;
+            showWinnerRule1(board[cy][cx], win);
+            break;
+          }
+        }
+      }
+      if (winnerFound) break;
+    }
+
+    if (!winnerFound) {
+      setTimeout(() => {
+        revertToGray(changed);
+      }, 2000);
+    }
+  }
+
+  currentPlayer = currentPlayer === 1 ? 2 : 1;
+  updateNextProb();
+});
+
+/* =========================
+   Keyboard Input（完成版）
+   ========================= */
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    gameStarted = false;
+    gameOver = false;
+    aiMode = false;
+    selectedRule = null;
+
+    board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
+    probData = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
+    winPositions = [];
+    hoverPos = null;
+    placedCount = 0;
+
+    blackQLeft = 3;
+    whiteQLeft = 3;
+    blackZLeft = 1;
+    whiteZLeft = 1;
+
+    currentPlayer = 1;
+    updateNextProb();
+    startFadeIn();
+    return;
+  }
+
+  if (!gameStarted) {
+    if (e.key === "1" || e.key === "2" || e.key === "3") {
+      selectedRule = e.key === "1" ? 1 : e.key === "2" ? 2 : 1;
+      aiMode = e.key === "3";
+      gameStarted = true;
+
+      currentPlayer = 1;
+      updateNextProb();
+
+      showStartMessage = true;
+      startMessageTime = performance.now();
+      startFadeIn();
+    }
+    return;
+  }
+
+  if (e.key === " " && gameOver) {
+    resetGame();
+    startFadeIn();
+  }
+
+  if (e.key.toLowerCase() === "z" && !gameOver) {
+    if (!hoverPos) return;
+
+    const [x, y] = hoverPos;
+    if (x < 0 || x >= BOARD_SIZE || y < 0 || y >= BOARD_SIZE) return;
+
+    if (currentPlayer === 1 && blackZLeft <= 0) return;
+    if (currentPlayer === 2 && whiteZLeft <= 0) return;
+
+    if (![0, 1, 2, 3, 4].includes(board[y][x])) return;
+
+    zEffectAnimation(x, y, currentPlayer);
+    showZMessage(currentPlayer);
+
+    probData[y][x] = null;
+    board[y][x] = currentPlayer;
+
+    if (currentPlayer === 1) blackZLeft--;
+    else whiteZLeft--;
+
+    const win = checkWin(x, y, currentPlayer);
+    if (win.length > 0) {
+      if (selectedRule === 1) showWinnerRule1(currentPlayer, win);
+      else showWinnerRule2(currentPlayer, win);
+    } else {
+      currentPlayer = currentPlayer === 1 ? 2 : 1;
+      updateNextProb();
+    }
+  }
+
+  if (selectedRule === 2 && e.key.toLowerCase() === "q" && !gameOver) {
+    if (currentPlayer === 1 && blackQLeft <= 0) return;
+    if (currentPlayer === 2 && whiteQLeft <= 0) return;
+
+    const changed = applyProbability();
+
+    if (currentPlayer === 1) blackQLeft--;
+    else whiteQLeft--;
+
+    let winnerFound = false;
+    for (let cy = 0; cy < BOARD_SIZE; cy++) {
+      for (let cx = 0; cx < BOARD_SIZE; cx++) {
+        if (board[cy][cx] === 1 || board[cy][cx] === 2) {
+          const win = checkWin(cx, cy, board[cy][cx]);
+          if (win.length > 0) {
+            winnerFound = true;
+            showWinnerRule2(board[cy][cx], win);
+            break;
+          }
+        }
+      }
+      if (winnerFound) break;
+    }
+
+    if (!winnerFound) {
+      setTimeout(() => {
+        revertToGray(changed);
+      }, 2000);
+    }
+  }
+});
+
+/* =========================
+   Main Loop
+   ========================= */
+function mainLoop(timestamp) {
+  const dt = timestamp - lastTime;
+  lastTime = timestamp;
+
+  doResetIfNeeded();
+
+  if (!gameStarted) {
+    drawStartScreen();
+  } else {
+    if (aiMode && selectedRule === 1 && currentPlayer === 2 && !gameOver && !resetting) {
+      if (!mainLoop.aiWait) mainLoop.aiWait = 0;
+      mainLoop.aiWait += dt;
+
+      if (mainLoop.aiWait > 300) {
+        mainLoop.aiWait = 0;
+
+        const pos = aiChooseBestMove();
+        if (pos) {
+          const [x, y] = pos;
+
+          if (nextProb >= 50) board[y][x] = 3;
+          else board[y][x] = 4;
+
+          probData[y][x] = nextProb;
+          placedCount++;
+
+          if (placedCount % 10 === 0) {
+            const changed = applyProbability();
+
+            let winnerFound = false;
+            for (let cy = 0; cy < BOARD_SIZE; cy++) {
+              for (let cx = 0; cx < BOARD_SIZE; cx++) {
+                if (board[cy][cx] === 1 || board[cy][cx] === 2) {
+                  const win = checkWin(cx, cy, board[cy][cx]);
+                  if (win.length > 0) {
+                    winnerFound = true;
+                    showWinnerRule1(board[cy][cx], win);
+                    break;
+                  }
+                }
+              }
+              if (winnerFound) break;
+            }
+
+            if (!winnerFound) {
+              setTimeout(() => {
+                revertToGray(changed);
+              }, 2000);
+            }
+          }
+
+          currentPlayer = 1;
+          updateNextProb();
+        }
+      }
+    }
+
+    if (!gameOver && !resetting) {
+      drawBoard();
+    }
+  }
+
+  if (showStartMessage) {
+    const elapsed = performance.now() - startMessageTime;
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 60px Meiryo";
+    ctx.textAlign = "center";
+    ctx.fillText("ゲームスタート！", (SCREEN_SIZE + INFO_WIDTH) / 2, SCREEN_SIZE / 2);
+
+    if (elapsed > 1000) {
+      showStartMessage = false;
+    }
+  }
+
+  if (fadingIn) {
+    ctx.fillStyle = `rgba(0,0,0,${fadeAlpha})`;
+    ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
+  }
+
+  requestAnimationFrame(mainLoop);
+}
+
+/* =========================
+   Start Game
+   ========================= */
+updateNextProb();
+startFadeIn();
+requestAnimationFrame(mainLoop);
