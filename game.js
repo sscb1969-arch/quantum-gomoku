@@ -1,6 +1,6 @@
 /* =========================
    Quantum Gomoku - Browser Edition
-   完全整形版 game.js
+   完全統合版 game.js (Part1)
    ========================= */
 
 const BOARD_SIZE = 15;
@@ -22,9 +22,6 @@ canvas.width = SCREEN_SIZE + INFO_WIDTH;
 canvas.height = WINDOW_HEIGHT;
 const ctx = canvas.getContext("2d");
 
-/* =========================
-   Game State
-   ========================= */
 let board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
 let probData = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
 
@@ -52,19 +49,16 @@ let blackZLeft = 1;
 let whiteZLeft = 1;
 
 let aiMode = false;
+
 let lastTime = performance.now();
 
-/* =========================
-   Fade / Start Effects
-   ========================= */
+/* --- フェード＆開始演出用 --- */
 let fadeAlpha = 0;
 let fadingIn = false;
 let showStartMessage = false;
 let startMessageTime = 0;
 
-/* =========================
-   Secret Command (Konami)
-   ========================= */
+/* --- 隠しコマンド（上上下下左右左右BA） --- */
 let secretBuffer = "";
 const SECRET_CODE = "uuddlrlrba";
 
@@ -104,7 +98,7 @@ function startFadeIn(duration = 800) {
 }
 
 /* =========================
-   Stone Fade Animation
+   Stone Fade Animation（Promise版）
    ========================= */
 function animateStoneFadeAsync(x, y, fromP, toPlayer, duration = 400) {
   return new Promise((resolve) => {
@@ -138,103 +132,9 @@ function animateStoneFadeAsync(x, y, fromP, toPlayer, duration = 400) {
     requestAnimationFrame(loop);
   });
 }
-
 /* =========================
-   Drawing
+   Drawing（続き）
    ========================= */
-function drawCircle(x, y, r, color, lineWidth = 0, strokeColor = "#000") {
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  if (color) {
-    ctx.fillStyle = color;
-    ctx.fill();
-  }
-  if (lineWidth > 0) {
-    ctx.lineWidth = lineWidth;
-    ctx.strokeStyle = strokeColor;
-    ctx.stroke();
-  }
-}
-
-function drawInfoPanel() {
-  const panelX = SCREEN_SIZE;
-
-  ctx.fillStyle = "#c8aa78";
-  ctx.fillRect(panelX, 0, INFO_WIDTH, WINDOW_HEIGHT);
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = "#503214";
-  ctx.strokeRect(panelX, 0, INFO_WIDTH, WINDOW_HEIGHT);
-
-  ctx.fillStyle = "#28140a";
-  ctx.font = "bold 32px Meiryo";
-  ctx.fillText("情報", panelX + 55, 45);
-
-  let y = 110;
-  const line = 45;
-
-  drawCircle(panelX + 30, y - 5, 12, currentPlayer === 1 ? BLACK_STONE : WHITE_STONE, 2);
-  ctx.font = "24px Meiryo";
-  ctx.fillText(`手番：${currentPlayer === 1 ? "黒" : "白"}`, panelX + 60, y);
-
-  y += line;
-  drawCircle(panelX + 30, y - 5, 12, currentPlayer === 1 ? BLACK_STONE : WHITE_STONE, 2);
-  ctx.fillText(`次石：${nextProb}`, panelX + 60, y);
-
-  y += line;
-  ctx.fillText(`置いた石：${countStones()}`, panelX + 20, y);
-
-  y += 25;
-  ctx.beginPath();
-  ctx.moveTo(panelX + 10, y);
-  ctx.lineTo(panelX + INFO_WIDTH - 10, y);
-  ctx.stroke();
-
-  y += line;
-  drawCircle(panelX + 30, y - 5, 12, BLACK_STONE, 2);
-  ctx.fillText(`黒：${blackWins}勝`, panelX + 60, y);
-
-  y += line;
-  drawCircle(panelX + 30, y - 5, 12, WHITE_STONE, 2);
-  ctx.fillText(`白：${whiteWins}勝`, panelX + 60, y);
-
-  if (selectedRule === 2) {
-    y += 25;
-    ctx.beginPath();
-    ctx.moveTo(panelX + 10, y);
-    ctx.lineTo(panelX + INFO_WIDTH - 10, y);
-    ctx.stroke();
-
-    y += line;
-    ctx.fillText(`黒Pt：${blackPoints}`, panelX + 20, y);
-
-    y += line;
-    ctx.fillText(`白Pt：${whitePoints}`, panelX + 20, y);
-
-    y += 25;
-    ctx.beginPath();
-    ctx.moveTo(panelX + 10, y);
-    ctx.lineTo(panelX + INFO_WIDTH - 10, y);
-    ctx.stroke();
-
-    y += line;
-    ctx.fillText(`黒Q残：${blackQLeft}`, panelX + 20, y);
-
-    y += line;
-    ctx.fillText(`白Q残：${whiteQLeft}`, panelX + 20, y);
-  }
-
-  y += 25;
-  ctx.beginPath();
-  ctx.moveTo(panelX + 10, y);
-  ctx.lineTo(panelX + INFO_WIDTH - 10, y);
-  ctx.stroke();
-
-  y += line;
-  ctx.fillText(`黒Z残：${blackZLeft}`, panelX + 20, y);
-
-  y += line;
-  ctx.fillText(`白Z残：${whiteZLeft}`, panelX + 20, y);
-}
 
 function drawBoard() {
   ctx.fillStyle = BG_COLOR;
@@ -383,7 +283,7 @@ function checkWin(x, y, player) {
 }
 
 /* =========================
-   Probability Observation
+   Probability Observation（逐次アニメーション）
    ========================= */
 async function applyProbabilityAnimated() {
   const changed = [];
@@ -470,137 +370,3 @@ function showWinnerRule1(player, positions) {
   }
   loop();
 }
-
-/* =========================
-   Winner Rule2
-   ========================= */
-function showWinnerRule2(player, positions) {
-  winPositions = positions;
-  const pts = calculatePoints();
-
-  if (player === 1) {
-    blackWins++;
-    blackPoints += pts;
-  } else {
-    whiteWins++;
-    whitePoints += pts;
-  }
-
-  gameOver = true;
-
-  function loop() {
-    drawBoard();
-    ctx.fillStyle = "rgba(0,0,0,0.6)";
-    ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
-
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "40px Meiryo";
-    ctx.textAlign = "center";
-    ctx.fillText(player === 1 ? "黒の勝ち!" : "白の勝ち!", (SCREEN_SIZE + INFO_WIDTH) / 2, 80);
-
-    ctx.font = "24px Meiryo";
-    ctx.fillText(`黒ポイント：${blackPoints}   白ポイント：${whitePoints}`, (SCREEN_SIZE + INFO_WIDTH) / 2, 150);
-
-    if (blinkVisible(500)) {
-      ctx.fillStyle = "rgb(100,100,200)";
-      ctx.fillText("スペースボタンで再試合", (SCREEN_SIZE + INFO_WIDTH) / 2, SCREEN_SIZE - 10);
-    }
-
-    if (!resetting && gameOver) requestAnimationFrame(loop);
-  }
-  loop();
-}
-
-/* =========================
-   Main Loop
-   ========================= */
-async function mainLoop(timestamp) {
-  const dt = timestamp - lastTime;
-  lastTime = timestamp;
-
-  doResetIfNeeded();
-
-  if (!gameStarted) {
-    drawStartScreen();
-  } else {
-    if (aiMode && selectedRule === 1 && currentPlayer === 2 && !gameOver && !resetting) {
-      if (!mainLoop.aiWait) mainLoop.aiWait = 0;
-      mainLoop.aiWait += dt;
-
-      if (mainLoop.aiWait > 300) {
-        mainLoop.aiWait = 0;
-
-        const pos = aiChooseBestMove();
-        if (pos) {
-          const [x, y] = pos;
-
-          board[y][x] = nextProb >= 50 ? 3 : 4;
-          probData[y][x] = nextProb;
-          placedCount++;
-
-          if (placedCount % 10 === 0) {
-            const changed = await applyProbabilityAnimated();
-
-            let winnerFound = false;
-            for (let cy = 0; cy < BOARD_SIZE; cy++) {
-              for (let cx = 0; cx < BOARD_SIZE; cx++) {
-                if (board[cy][cx] === 1 || board[cy][cx] === 2) {
-                  const win = checkWin(cx, cy, board[cy][cx]);
-                  if (win.length > 0) {
-                    winnerFound = true;
-                    showWinnerRule1(board[cy][cx], win);
-                    break;
-                  }
-                }
-              }
-              if (winnerFound) break;
-            }
-
-            if (!winnerFound) {
-              setTimeout(() => revertToGray(changed), 2000);
-            }
-          }
-
-          currentPlayer = 1;
-          updateNextProb();
-        }
-      }
-    }
-
-    if (!gameOver && !resetting) {
-      drawBoard();
-    }
-  }
-
-  /* --- Start Message --- */
-  if (showStartMessage) {
-    const elapsed = performance.now() - startMessageTime;
-
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
-
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 60px Meiryo";
-    ctx.textAlign = "center";
-    ctx.fillText("ゲームスタート！", (SCREEN_SIZE + INFO_WIDTH) / 2, SCREEN_SIZE / 2);
-
-    if (elapsed > 1000) {
-      showStartMessage = false;
-    }
-  }
-
-  /* --- Fade In --- */
-  if (fadingIn) {
-    ctx.fillStyle = `rgba(0,0,0,${fadeAlpha})`;
-    ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
-  }
-
-  requestAnimationFrame(mainLoop);
-}
-
-/* =========================
-   Start Game
-   ========================= */
-updateNextProb();
-startFadeIn();
-requestAnimationFrame(mainLoop);
