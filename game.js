@@ -1380,3 +1380,62 @@ function mainLoop(timestamp) {
 updateNextProb();
 startFadeIn();
 requestAnimationFrame(mainLoop);
+/* ============================================================
+   📱 スマホ対応：Canvas 自動スケール
+   ============================================================ */
+function resizeCanvasForMobile() {
+  const canvas = document.getElementById("game");
+
+  const SCREEN_W = canvas.width;
+  const SCREEN_H = canvas.height;
+
+  const scale = Math.min(
+    window.innerWidth / SCREEN_W,
+    window.innerHeight / SCREEN_H
+  );
+
+  canvas.style.transformOrigin = "top left";
+  canvas.style.transform = `scale(${scale})`;
+}
+
+window.addEventListener("resize", resizeCanvasForMobile);
+window.addEventListener("orientationchange", resizeCanvasForMobile);
+setTimeout(resizeCanvasForMobile, 200);
+
+
+/* ============================================================
+   📱 スマホ：タップ → クリック変換
+   ============================================================ */
+const canvasElement = document.getElementById("game");
+
+canvasElement.addEventListener("touchstart", (e) => {
+  const t = e.touches[0];
+  const rect = canvasElement.getBoundingClientRect();
+  const mx = t.clientX - rect.left;
+  const my = t.clientY - rect.top;
+
+  canvasElement.dispatchEvent(
+    new MouseEvent("mousedown", {
+      clientX: mx + rect.left,
+      clientY: my + rect.top
+    })
+  );
+});
+
+
+/* ============================================================
+   📱 スマホ UI ボタン → キー入力に変換
+   （index.html に配置されたボタンを利用）
+   ============================================================ */
+function bindMobileUIButton(id, key) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+
+  btn.addEventListener("click", () => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key }));
+  });
+}
+
+bindMobileUIButton("btn-z", "z");      // Z（確定石）
+bindMobileUIButton("btn-q", "q");      // Q（観測）
+bindMobileUIButton("btn-reset", " ");  // スペース（再試合）
