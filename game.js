@@ -1467,16 +1467,6 @@ bindMobileUIButton("btn-z", "z");
 bindMobileUIButton("btn-q", "q");
 bindMobileUIButton("btn-reset", " ");
 
-/* ============================================================
-   📱 開始画面のモード選択（暴発防止版）
-   ============================================================ */
-canvasElement.addEventListener("click", (e) => {
-  if (gameStarted) return;
-
-  const rect = canvasElement.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-
  /* ============================================================
    📱 開始画面のモード選択（touchend専用・暴発完全防止）
    ============================================================ */
