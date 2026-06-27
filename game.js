@@ -1477,7 +1477,17 @@ canvasElement.addEventListener("click", (e) => {
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
 
-  // ★ ボタン領域を画面下 40px に限定（暴発防止）
+ /* ============================================================
+   📱 開始画面のモード選択（touchend専用・暴発完全防止）
+   ============================================================ */
+canvasElement.addEventListener("touchend", (e) => {
+  if (gameStarted) return;
+
+  const t = e.changedTouches[0];
+  const rect = canvasElement.getBoundingClientRect();
+  const mx = t.clientX - rect.left;
+  const my = t.clientY - rect.top;
+
   const buttonTop = SCREEN_SIZE - 40;
   const buttonBottom = SCREEN_SIZE;
 
@@ -1495,5 +1505,3 @@ canvasElement.addEventListener("click", (e) => {
 
   window.dispatchEvent(new KeyboardEvent("keydown", { key }));
 });
-
-setTimeout(resizeCanvasForMobile, 200);
