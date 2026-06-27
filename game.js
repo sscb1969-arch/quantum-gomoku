@@ -1070,7 +1070,8 @@ canvas.addEventListener("mousedown", (e) => {
 
   currentPlayer = currentPlayer === 1 ? 2 : 1;
   updateNextProb();
-}
+});
+
 
 /* =========================
    ★ Secret Command: 相手の石の半分を奪う
