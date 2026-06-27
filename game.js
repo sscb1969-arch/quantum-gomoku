@@ -1439,3 +1439,5 @@ function bindMobileUIButton(id, key) {
 bindMobileUIButton("btn-z", "z");      // Z（確定石）
 bindMobileUIButton("btn-q", "q");      // Q（観測）
 bindMobileUIButton("btn-reset", " ");  // スペース（再試合）
+
+setTimeout(resizeCanvasForMobile, 200);
