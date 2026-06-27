@@ -3,10 +3,134 @@
 <head>
   <meta charset="UTF-8">
   <title>量子五目並べ（ブラウザ版）</title>
+
+  <!-- スマホ最適化 -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
   <link rel="stylesheet" href="style.css">
+
+  <style>
+    body {
+      margin: 0;
+      background: #222;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      height: 100vh;
+      overflow: hidden;
+      font-family: "Meiryo", sans-serif;
+    }
+
+    #container {
+      position: relative;
+      touch-action: none;
+    }
+
+    canvas {
+      display: block;
+      background: #f0d9b5;
+      transform-origin: top left;
+    }
+
+    /* ===== スマホ UI ボタン ===== */
+    #mobile-ui {
+      position: fixed;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 10;
+    }
+
+    #mobile-ui button {
+      font-size: 18px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: none;
+      background: #333;
+      color: #fff;
+      box-shadow: 0 0 6px rgba(0,0,0,0.4);
+    }
+
+    #mobile-ui button:active {
+      background: #555;
+    }
+  </style>
 </head>
+
 <body>
-  <canvas id="game"></canvas>
+
+  <div id="container">
+    <canvas id="game"></canvas>
+  </div>
+
+  <!-- ===== スマホ UI ボタン ===== -->
+  <div id="mobile-ui">
+    <button id="btn-z">Z（確定）</button>
+    <button id="btn-q">Q（観測）</button>
+    <button id="btn-reset">再試合</button>
+  </div>
+
   <script src="game.js"></script>
+
+  <script>
+    /* =========================
+       スマホ向け Canvas 自動フィット
+       ========================= */
+    function resizeCanvasForMobile() {
+      const canvas = document.getElementById("game");
+
+      const SCREEN_W = canvas.width;
+      const SCREEN_H = canvas.height;
+
+      const scale = Math.min(
+        window.innerWidth / SCREEN_W,
+        window.innerHeight / SCREEN_H
+      );
+
+      canvas.style.transform = `scale(${scale})`;
+    }
+
+    window.addEventListener("resize", resizeCanvasForMobile);
+    window.addEventListener("orientationchange", resizeCanvasForMobile);
+    setTimeout(resizeCanvasForMobile, 200);
+
+    /* =========================
+       スマホタップ → クリック処理に変換
+       ========================= */
+    const canvas = document.getElementById("game");
+
+    canvas.addEventListener("touchstart", (e) => {
+      const t = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const mx = t.clientX - rect.left;
+      const my = t.clientY - rect.top;
+
+      canvas.dispatchEvent(
+        new MouseEvent("mousedown", {
+          clientX: mx + rect.left,
+          clientY: my + rect.top
+        })
+      );
+    });
+
+    /* =========================
+       スマホ UI ボタン → キー入力に変換
+       ========================= */
+    document.getElementById("btn-z").onclick = () => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "z" }));
+    };
+
+    document.getElementById("btn-q").onclick = () => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "q" }));
+    };
+
+    document.getElementById("btn-reset").onclick = () => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
+    };
+  </script>
+
 </body>
 </html>
