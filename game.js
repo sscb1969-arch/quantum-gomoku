@@ -1,6 +1,6 @@
 /* =========================
    Quantum Gomoku - Browser Edition
-   game.js  (WebSocket Online 対戦統合版)
+   game.js  (WebSocket Online 対戦統合版 + Zモード + タッチ対応)
    ========================= */
 
 const BOARD_SIZE = 15;
@@ -22,6 +22,14 @@ canvas.width = SCREEN_SIZE + INFO_WIDTH;
 canvas.height = WINDOW_HEIGHT;
 const ctx = canvas.getContext("2d");
 
+/* =========================
+   ★ Zモード（A方式）
+   ========================= */
+let zMode = false;  // ← Zキーで ON、次のクリックで確定石を置いたら OFF
+
+/* =========================
+   ゲーム状態
+   ========================= */
 let board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
 let probData = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
 
@@ -71,13 +79,13 @@ const SECRET_CODE = [
 /* =========================
    WebSocket Online 対戦
    ========================= */
-const WS_DEFAULT_URL = "ws://localhost:8080"; // 必要に応じて変更
+const WS_DEFAULT_URL = "ws://localhost:8080";
 let ws = null;
-let onlineMode = false;      // オンライン対戦中か
-let onlinePlayer = 1;        // このクライアントの担当色（1:黒, 2:白）
+let onlineMode = false;
+let onlinePlayer = 1;
 let onlineClientId = Math.random().toString(36).slice(2);
 let onlineConnected = false;
-let onlineIsHost = false;    // 観測処理を担当する側（黒側をホストにする想定）
+let onlineIsHost = false;
 
 function logOnline(msg) {
   console.log("[ONLINE]", msg);
@@ -90,13 +98,12 @@ function wsSend(obj) {
 }
 
 function setupWebSocket(url, playerColor) {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.close();
-  }
+  if (ws && ws.readyState === WebSocket.OPEN) ws.close();
 
   onlineMode = true;
-  onlinePlayer = playerColor;      // 1:黒, 2:白
-  onlineIsHost = (onlinePlayer === 1); // 黒側をホスト扱い
+  onlinePlayer = playerColor;
+  onlineIsHost = (onlinePlayer === 1);
+
   logOnline(`Connecting to ${url} as ${onlinePlayer === 1 ? "Black(Host)" : "White(Client)"}`);
 
   ws = new WebSocket(url);
@@ -119,8 +126,7 @@ function setupWebSocket(url, playerColor) {
   ws.addEventListener("message", (e) => {
     try {
       const msg = JSON.parse(e.data);
-      if (msg.clientId === onlineClientId) return; // 自分が送ったものは無視
-
+      if (msg.clientId === onlineClientId) return;
       handleOnlineMessage(msg);
     } catch (err) {
       console.error("Invalid message", err);
@@ -135,31 +141,17 @@ function handleOnlineMessage(msg) {
   if (!onlineMode) return;
 
   switch (msg.type) {
-    case "reset":
-      applyOnlineReset(msg);
-      break;
-
-    case "move":
-      applyOnlineMove(msg);
-      break;
-
-    case "observe":
-      applyOnlineObserve(msg);
-      break;
-
-    case "z":
-      applyOnlineZ(msg);
-      break;
-
-    case "q":
-      applyOnlineQ(msg);
-      break;
-
-    default:
-      break;
+    case "reset": applyOnlineReset(msg); break;
+    case "move": applyOnlineMove(msg); break;
+    case "observe": applyOnlineObserve(msg); break;
+    case "z": applyOnlineZ(msg); break;
+    case "q": applyOnlineQ(msg); break;
   }
 }
 
+/* =========================
+   Online Reset
+   ========================= */
 function applyOnlineReset(msg) {
   board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
   probData = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
@@ -175,14 +167,18 @@ function applyOnlineReset(msg) {
   blackZLeft = msg.blackZLeft ?? 1;
   whiteZLeft = msg.whiteZLeft ?? 1;
 
+  zMode = false; // ← Zモード解除
+
   updateNextProb();
 }
 
+/* =========================
+   Online Move
+   ========================= */
 function applyOnlineMove(msg) {
   const { x, y, prob, player, placedCount: pc } = msg;
   if (x == null || y == null) return;
 
-  if (x < 0 || x >= BOARD_SIZE || y < 0 || y >= BOARD_SIZE) return;
   if (board[y][x] !== 0) return;
 
   currentPlayer = player;
@@ -195,13 +191,9 @@ function applyOnlineMove(msg) {
   placedCount = pc;
 
   if (selectedRule === 1 && placedCount % 10 === 0) {
-    // 観測はホスト側のみが行い、その結果を observe メッセージで送る
-    if (!onlineIsHost) {
-      // クライアント側はここでは何もしない（observe メッセージ待ち）
-    } else {
-      const changed = applyProbabilityForOnline(); // ホスト側専用
+    if (onlineIsHost) {
+      const changed = applyProbabilityForOnline();
       wsSend({ type: "observe", stones: changed });
-      // 勝敗チェックは両側で同じ board を使うので、両側で行ってもよい
       checkWinnerAfterObservationRule1();
     }
   }
@@ -210,22 +202,24 @@ function applyOnlineMove(msg) {
   updateNextProb();
 }
 
+/* =========================
+   Online Observe
+   ========================= */
 function applyOnlineObserve(msg) {
   const stones = msg.stones || [];
-  // stones: [{x,y,p,val}]
   for (const s of stones) {
     const { x, y, p, val } = s;
-    if (x == null || y == null) continue;
     probData[y][x] = p;
     board[y][x] = val;
   }
-  // 観測後の勝敗チェック
   checkWinnerAfterObservationRule1();
 }
 
+/* =========================
+   Online Z（確定石）
+   ========================= */
 function applyOnlineZ(msg) {
   const { x, y, player, blackZLeft: bz, whiteZLeft: wz } = msg;
-  if (x == null || y == null) return;
 
   currentPlayer = player;
   blackZLeft = bz;
@@ -244,21 +238,21 @@ function applyOnlineZ(msg) {
   }
 }
 
+/* =========================
+   Online Q（観測）
+   ========================= */
 function applyOnlineQ(msg) {
-  // Q 観測はホスト側のみが実行し、その結果を observe で送る前提
   const { player, blackQLeft: bq, whiteQLeft: wq } = msg;
   currentPlayer = player;
   blackQLeft = bq;
   whiteQLeft = wq;
 
-  // ホスト側のみ観測を実行
   if (onlineIsHost) {
     const changed = applyProbabilityForOnline();
     wsSend({ type: "observe", stones: changed });
     checkWinnerAfterObservationRule2();
   }
 }
-
 /* =========================
    Utility
    ========================= */
@@ -466,6 +460,10 @@ function drawInfoPanel() {
 
   y += line;
   ctx.fillText(`Online：${onlineMode ? (onlineConnected ? "接続中" : "未接続") : "OFF"}`, panelX + 20, y);
+
+  /* ★ Zモード表示（Z1） */
+  y += line;
+  ctx.fillText(`Zモード：${zMode ? "ON" : "OFF"}`, panelX + 20, y);
 }
 
 function drawBoard() {
@@ -634,7 +632,6 @@ function applyProbability() {
   return changed;
 }
 
-// オンライン用：観測結果を配列で返す（ホスト側のみ使用）
 function applyProbabilityForOnline() {
   const changed = [];
   for (let y = 0; y < BOARD_SIZE; y++) {
@@ -727,6 +724,7 @@ function showWinnerRule1(player, positions) {
   else whiteWins++;
 
   gameOver = true;
+  zMode = false;
 
   function loop() {
     drawBoard();
@@ -763,6 +761,7 @@ function showWinnerRule2(player, positions) {
   }
 
   gameOver = true;
+  zMode = false;
 
   function loop() {
     drawBoard();
@@ -912,7 +911,7 @@ function aiChooseBestMove() {
 }
 
 /* =========================
-   Z Key (確定石)
+   Z Key (確定石) 演出
    ========================= */
 function zEffectAnimation(x, y, player) {
   const cx = MARGIN + x * CELL_SIZE;
@@ -975,6 +974,8 @@ function doResetIfNeeded() {
     blackZLeft = 1;
     whiteZLeft = 1;
 
+    zMode = false;
+
     resetting = false;
     updateNextProb();
   }
@@ -995,14 +996,13 @@ canvas.addEventListener("mousemove", (e) => {
 });
 
 /* =========================
-   Mouse Click (Place Stone)
+   Mouse Click (Place Stone) + Zモード対応
    ========================= */
 canvas.addEventListener("mousedown", (e) => {
   if (!gameStarted || gameOver) return;
   if (aiMode && currentPlayer === 2) return;
 
   if (onlineMode) {
-    // オンライン時は自分の手番のみクリック可能
     if (currentPlayer !== onlinePlayer) return;
     if (!onlineConnected) return;
   }
@@ -1015,6 +1015,47 @@ canvas.addEventListener("mousedown", (e) => {
   const y = Math.round((my - MARGIN) / CELL_SIZE);
 
   if (x < 0 || x >= BOARD_SIZE || y < 0 || y >= BOARD_SIZE) return;
+
+  /* --- Zモード中：確定石として置く（相手石も上書き可） --- */
+  if (zMode && !gameOver) {
+    if (currentPlayer === 1 && blackZLeft <= 0) return;
+    if (currentPlayer === 2 && whiteZLeft <= 0) return;
+
+    // 相手石も含めて上書き可能（A1仕様）
+    zEffectAnimation(x, y, currentPlayer);
+    showZMessage(currentPlayer);
+
+    probData[y][x] = null;
+    board[y][x] = currentPlayer;
+
+    if (currentPlayer === 1) blackZLeft--;
+    else whiteZLeft--;
+
+    if (onlineMode && onlineConnected) {
+      wsSend({
+        type: "z",
+        x,
+        y,
+        player: currentPlayer,
+        blackZLeft,
+        whiteZLeft
+      });
+    }
+
+    const win = checkWin(x, y, currentPlayer);
+    if (win.length > 0) {
+      if (selectedRule === 1) showWinnerRule1(currentPlayer, win);
+      else showWinnerRule2(currentPlayer, win);
+    } else {
+      currentPlayer = currentPlayer === 1 ? 2 : 1;
+      updateNextProb();
+    }
+
+    zMode = false; // ← 1手で解除
+    return;
+  }
+
+  /* --- 通常モード：量子石を置く --- */
   if (board[y][x] !== 0) return;
 
   if (nextProb >= 50) board[y][x] = 3;
@@ -1025,7 +1066,6 @@ canvas.addEventListener("mousedown", (e) => {
 
   if (selectedRule === 1 && placedCount % 10 === 0) {
     if (onlineMode) {
-      // ホスト側のみ観測を行い、その結果を送信
       if (onlineIsHost) {
         const changed = applyProbabilityForOnline();
         wsSend({ type: "observe", stones: changed });
@@ -1070,15 +1110,14 @@ canvas.addEventListener("mousedown", (e) => {
 
   currentPlayer = currentPlayer === 1 ? 2 : 1;
   updateNextProb();
-});
-
+}
 
 /* =========================
    ★ Secret Command: 相手の石の半分を奪う
    ========================= */
 async function activateSecretCommand() {
   if (gameOver || !gameStarted) return;
-  if (onlineMode) return; // オンライン時はチート無効
+  if (onlineMode) return;
 
   const enemy = currentPlayer === 1 ? 2 : 1;
   const enemyStones = [];
@@ -1114,11 +1153,10 @@ async function activateSecretCommand() {
 }
 
 /* =========================
-   Keyboard Input（完成版）
+   Keyboard Input（Zモード対応版）
    ========================= */
 window.addEventListener("keydown", (e) => {
 
-  /* --- Secret Command Buffer --- */
   secretBuffer.push(e.key);
   if (secretBuffer.length > 10) secretBuffer.shift();
 
@@ -1146,6 +1184,8 @@ window.addEventListener("keydown", (e) => {
     blackZLeft = 1;
     whiteZLeft = 1;
 
+    zMode = false;
+
     currentPlayer = 1;
     updateNextProb();
     startFadeIn();
@@ -1167,7 +1207,7 @@ window.addEventListener("keydown", (e) => {
         aiMode = true;
         onlineMode = false;
       } else if (e.key === "4") {
-        selectedRule = 1;      // ルール1ベース
+        selectedRule = 1;
         aiMode = false;
         onlineMode = true;
 
@@ -1194,45 +1234,11 @@ window.addEventListener("keydown", (e) => {
     startFadeIn();
   }
 
+  /* --- Zキー：Zモード ON（次のクリックで確定石） --- */
   if (e.key.toLowerCase() === "z" && !gameOver) {
-    if (!hoverPos) return;
-
-    const [x, y] = hoverPos;
-    if (x < 0 || x >= BOARD_SIZE || y < 0 || y >= BOARD_SIZE) return;
-
     if (currentPlayer === 1 && blackZLeft <= 0) return;
     if (currentPlayer === 2 && whiteZLeft <= 0) return;
-
-    if (![0, 1, 2, 3, 4].includes(board[y][x])) return;
-
-    zEffectAnimation(x, y, currentPlayer);
-    showZMessage(currentPlayer);
-
-    probData[y][x] = null;
-    board[y][x] = currentPlayer;
-
-    if (currentPlayer === 1) blackZLeft--;
-    else whiteZLeft--;
-
-    if (onlineMode && onlineConnected) {
-      wsSend({
-        type: "z",
-        x,
-        y,
-        player: currentPlayer,
-        blackZLeft,
-        whiteZLeft
-      });
-    }
-
-    const win = checkWin(x, y, currentPlayer);
-    if (win.length > 0) {
-      if (selectedRule === 1) showWinnerRule1(currentPlayer, win);
-      else showWinnerRule2(currentPlayer, win);
-    } else {
-      currentPlayer = currentPlayer === 1 ? 2 : 1;
-      updateNextProb();
-    }
+    zMode = true;
   }
 
   if (selectedRule === 2 && e.key.toLowerCase() === "q" && !gameOver) {
@@ -1241,7 +1247,6 @@ window.addEventListener("keydown", (e) => {
 
     if (onlineMode) {
       if (!onlineConnected) return;
-      // Q 観測はホスト側のみ実行
       if (!onlineIsHost) return;
 
       if (currentPlayer === 1) blackQLeft--;
@@ -1286,7 +1291,6 @@ window.addEventListener("keydown", (e) => {
     }
   }
 });
-
 /* =========================
    Main Loop
    ========================= */
@@ -1310,39 +1314,63 @@ function mainLoop(timestamp) {
         if (pos) {
           const [x, y] = pos;
 
-          if (nextProb >= 50) board[y][x] = 3;
-          else board[y][x] = 4;
+          if (zMode) {
+            if (currentPlayer === 1 && blackZLeft <= 0) return;
+            if (currentPlayer === 2 && whiteZLeft <= 0) return;
 
-          probData[y][x] = nextProb;
-          placedCount++;
+            zEffectAnimation(x, y, currentPlayer);
+            showZMessage(currentPlayer);
 
-          if (placedCount % 10 === 0) {
-            const changed = applyProbability();
+            probData[y][x] = null;
+            board[y][x] = currentPlayer;
 
-            let winnerFound = false;
-            for (let cy = 0; cy < BOARD_SIZE; cy++) {
-              for (let cx = 0; cx < BOARD_SIZE; cx++) {
-                if (board[cy][cx] === 1 || board[cy][cx] === 2) {
-                  const win = checkWin(cx, cy, board[cy][cx]);
-                  if (win.length > 0) {
-                    winnerFound = true;
-                    showWinnerRule1(board[cy][cx], win);
-                    break;
+            if (currentPlayer === 1) blackZLeft--;
+            else whiteZLeft--;
+
+            const win = checkWin(x, y, currentPlayer);
+            if (win.length > 0) {
+              showWinnerRule1(currentPlayer, win);
+            } else {
+              currentPlayer = 1;
+              updateNextProb();
+            }
+
+            zMode = false;
+          } else {
+            if (nextProb >= 50) board[y][x] = 3;
+            else board[y][x] = 4;
+
+            probData[y][x] = nextProb;
+            placedCount++;
+
+            if (placedCount % 10 === 0) {
+              const changed = applyProbability();
+
+              let winnerFound = false;
+              for (let cy = 0; cy < BOARD_SIZE; cy++) {
+                for (let cx = 0; cx < BOARD_SIZE; cx++) {
+                  if (board[cy][cx] === 1 || board[cy][cx] === 2) {
+                    const win = checkWin(cx, cy, board[cy][cx]);
+                    if (win.length > 0) {
+                      winnerFound = true;
+                      showWinnerRule1(board[cy][cx], win);
+                      break;
+                    }
                   }
                 }
+                if (winnerFound) break;
               }
-              if (winnerFound) break;
+
+              if (!winnerFound) {
+                setTimeout(() => {
+                  revertToGray(changed);
+                }, 2000);
+              }
             }
 
-            if (!winnerFound) {
-              setTimeout(() => {
-                revertToGray(changed);
-              }, 2000);
-            }
+            currentPlayer = 1;
+            updateNextProb();
           }
-
-          currentPlayer = 1;
-          updateNextProb();
         }
       }
     }
@@ -1381,6 +1409,7 @@ function mainLoop(timestamp) {
 updateNextProb();
 startFadeIn();
 requestAnimationFrame(mainLoop);
+
 /* ============================================================
    📱 スマホ対応：Canvas 自動スケール
    ============================================================ */
@@ -1403,7 +1432,6 @@ window.addEventListener("resize", resizeCanvasForMobile);
 window.addEventListener("orientationchange", resizeCanvasForMobile);
 setTimeout(resizeCanvasForMobile, 200);
 
-
 /* ============================================================
    📱 スマホ：タップ → クリック変換
    ============================================================ */
@@ -1423,10 +1451,8 @@ canvasElement.addEventListener("touchstart", (e) => {
   );
 });
 
-
 /* ============================================================
    📱 スマホ UI ボタン → キー入力に変換
-   （index.html に配置されたボタンを利用）
    ============================================================ */
 function bindMobileUIButton(id, key) {
   const btn = document.getElementById(id);
@@ -1437,8 +1463,35 @@ function bindMobileUIButton(id, key) {
   });
 }
 
-bindMobileUIButton("btn-z", "z");      // Z（確定石）
-bindMobileUIButton("btn-q", "q");      // Q（観測）
-bindMobileUIButton("btn-reset", " ");  // スペース（再試合）
+bindMobileUIButton("btn-z", "z");
+bindMobileUIButton("btn-q", "q");
+bindMobileUIButton("btn-reset", " ");
+
+/* ============================================================
+   📱 開始画面のモード選択をタッチ対応
+   ============================================================ */
+canvasElement.addEventListener("click", (e) => {
+  if (gameStarted) return;
+
+  const rect = canvasElement.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  const centerX = (SCREEN_SIZE + INFO_WIDTH) / 2;
+
+  // だいたい画面下部の「1 / 2 / 3 / 4 を押してスタート」付近をタッチしたら、
+  // x 位置でモードを決める簡易タッチ選択
+  if (my > SCREEN_SIZE - 60 && my < SCREEN_SIZE) {
+    const quarter = (SCREEN_SIZE + INFO_WIDTH) / 4;
+    let key = null;
+
+    if (mx < quarter) key = "1";
+    else if (mx < quarter * 2) key = "2";
+    else if (mx < quarter * 3) key = "3";
+    else key = "4";
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key }));
+  }
+});
 
 setTimeout(resizeCanvasForMobile, 200);
