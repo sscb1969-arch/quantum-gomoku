@@ -253,6 +253,7 @@ function applyOnlineQ(msg) {
     checkWinnerAfterObservationRule2();
   }
 }
+
 /* =========================
    Utility
    ========================= */
@@ -537,7 +538,6 @@ function drawBoard() {
    Start Screen
    ========================= */
 function drawStartScreen() {
-  // ★ 盤面を描かない（黒帯も描かない）
   ctx.fillStyle = "rgba(0,0,0,0.8)";
   ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
 
@@ -580,7 +580,6 @@ function drawStartScreen() {
     ctx.fillText("1 / 2 / 3 / 4 を押してスタート", (SCREEN_SIZE + INFO_WIDTH) / 2, SCREEN_SIZE - 10);
   }
 }
-
 
 /* =========================
    Win Check
@@ -1021,7 +1020,6 @@ canvas.addEventListener("mousedown", (e) => {
     if (currentPlayer === 1 && blackZLeft <= 0) return;
     if (currentPlayer === 2 && whiteZLeft <= 0) return;
 
-    // 相手石も含めて上書き可能（A1仕様）
     zEffectAnimation(x, y, currentPlayer);
     showZMessage(currentPlayer);
 
@@ -1051,7 +1049,7 @@ canvas.addEventListener("mousedown", (e) => {
       updateNextProb();
     }
 
-    zMode = false; // ← 1手で解除
+    zMode = false;
     return;
   }
 
@@ -1110,7 +1108,7 @@ canvas.addEventListener("mousedown", (e) => {
 
   currentPlayer = currentPlayer === 1 ? 2 : 1;
   updateNextProb();
-}
+});
 
 /* =========================
    ★ Secret Command: 相手の石の半分を奪う
@@ -1156,7 +1154,6 @@ async function activateSecretCommand() {
    Keyboard Input（Zモード対応版）
    ========================= */
 window.addEventListener("keydown", (e) => {
-
   secretBuffer.push(e.key);
   if (secretBuffer.length > 10) secretBuffer.shift();
 
@@ -1234,7 +1231,6 @@ window.addEventListener("keydown", (e) => {
     startFadeIn();
   }
 
-  /* --- Zキー：Zモード ON（次のクリックで確定石） --- */
   if (e.key.toLowerCase() === "z" && !gameOver) {
     if (currentPlayer === 1 && blackZLeft <= 0) return;
     if (currentPlayer === 2 && whiteZLeft <= 0) return;
@@ -1291,6 +1287,7 @@ window.addEventListener("keydown", (e) => {
     }
   }
 });
+
 /* =========================
    Main Loop
    ========================= */
@@ -1467,7 +1464,35 @@ bindMobileUIButton("btn-z", "z");
 bindMobileUIButton("btn-q", "q");
 bindMobileUIButton("btn-reset", " ");
 
- /* ============================================================
+/* ============================================================
+   📱 開始画面のモード選択（PC用クリック）
+   ============================================================ */
+canvasElement.addEventListener("click", (e) => {
+  if (gameStarted) return;
+
+  const rect = canvasElement.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  const buttonTop = SCREEN_SIZE - 40;
+  const buttonBottom = SCREEN_SIZE;
+
+  if (my < buttonTop || my > buttonBottom) return;
+
+  const totalWidth = SCREEN_SIZE + INFO_WIDTH;
+  const quarter = totalWidth / 4;
+
+  let key = null;
+
+  if (mx < quarter) key = "1";
+  else if (mx < quarter * 2) key = "2";
+  else if (mx < quarter * 3) key = "3";
+  else key = "4";
+
+  window.dispatchEvent(new KeyboardEvent("keydown", { key }));
+});
+
+/* ============================================================
    📱 開始画面のモード選択（touchend専用・暴発完全防止）
    ============================================================ */
 canvasElement.addEventListener("touchend", (e) => {
