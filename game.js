@@ -537,8 +537,7 @@ function drawBoard() {
    Start Screen
    ========================= */
 function drawStartScreen() {
-  drawBoard();
-
+  // ★ 盤面を描かない（黒帯も描かない）
   ctx.fillStyle = "rgba(0,0,0,0.8)";
   ctx.fillRect(0, 0, SCREEN_SIZE + INFO_WIDTH, WINDOW_HEIGHT);
 
@@ -581,6 +580,7 @@ function drawStartScreen() {
     ctx.fillText("1 / 2 / 3 / 4 を押してスタート", (SCREEN_SIZE + INFO_WIDTH) / 2, SCREEN_SIZE - 10);
   }
 }
+
 
 /* =========================
    Win Check
