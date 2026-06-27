@@ -1468,7 +1468,7 @@ bindMobileUIButton("btn-q", "q");
 bindMobileUIButton("btn-reset", " ");
 
 /* ============================================================
-   📱 開始画面のモード選択をタッチ対応
+   📱 開始画面のモード選択（暴発防止版）
    ============================================================ */
 canvasElement.addEventListener("click", (e) => {
   if (gameStarted) return;
@@ -1477,21 +1477,23 @@ canvasElement.addEventListener("click", (e) => {
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
 
-  const centerX = (SCREEN_SIZE + INFO_WIDTH) / 2;
+  // ★ ボタン領域を画面下 40px に限定（暴発防止）
+  const buttonTop = SCREEN_SIZE - 40;
+  const buttonBottom = SCREEN_SIZE;
 
-  // だいたい画面下部の「1 / 2 / 3 / 4 を押してスタート」付近をタッチしたら、
-  // x 位置でモードを決める簡易タッチ選択
-  if (my > SCREEN_SIZE - 60 && my < SCREEN_SIZE) {
-    const quarter = (SCREEN_SIZE + INFO_WIDTH) / 4;
-    let key = null;
+  if (my < buttonTop || my > buttonBottom) return;
 
-    if (mx < quarter) key = "1";
-    else if (mx < quarter * 2) key = "2";
-    else if (mx < quarter * 3) key = "3";
-    else key = "4";
+  const totalWidth = SCREEN_SIZE + INFO_WIDTH;
+  const quarter = totalWidth / 4;
 
-    window.dispatchEvent(new KeyboardEvent("keydown", { key }));
-  }
+  let key = null;
+
+  if (mx < quarter) key = "1";
+  else if (mx < quarter * 2) key = "2";
+  else if (mx < quarter * 3) key = "3";
+  else key = "4";
+
+  window.dispatchEvent(new KeyboardEvent("keydown", { key }));
 });
 
 setTimeout(resizeCanvasForMobile, 200);
