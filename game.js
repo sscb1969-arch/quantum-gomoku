@@ -1208,10 +1208,26 @@ window.addEventListener("keydown", (e) => {
         aiMode = false;
         onlineMode = true;
 
-        const url = prompt("WebSocket サーバー URL を入力してください", WS_DEFAULT_URL) || WS_DEFAULT_URL;
-        const color = prompt("あなたの色を選択 (1:黒 / 2:白)", "1");
-        const playerColor = color === "2" ? 2 : 1;
-        setupWebSocket(url, playerColor);
+      const WS_DEFAULT_URL = "wss://your-public-server.example.com";
+         } else if (e.key === "4") {
+  selectedRule = 1;
+  aiMode = false;
+  onlineMode = true;
+
+  // ★ 自動で黒/白を決定（先に入った人が黒）
+  const playerColor = Math.random() < 0.5 ? 1 : 2;
+
+  setupWebSocket(WS_DEFAULT_URL, playerColor);
+
+  gameStarted = true;
+  currentPlayer = 1;
+  updateNextProb();
+  showStartMessage = true;
+  startMessageTime = performance.now();
+  startFadeIn();
+}
+
+
       }
 
       gameStarted = true;
