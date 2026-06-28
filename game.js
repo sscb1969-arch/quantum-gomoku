@@ -1465,9 +1465,12 @@ bindMobileUIButton("btn-q", "q");
 bindMobileUIButton("btn-reset", " ");
 
 /* ============================================================
-   📱 開始画面のモード選択（PC用クリック）
+   📱 開始画面のモード選択（PC用クリック）←スマホでは無効化
    ============================================================ */
 canvasElement.addEventListener("click", (e) => {
+  // ★ スマホでは click が touchend の後に必ず発生するため無効化
+  if ("ontouchstart" in window) return;
+
   if (gameStarted) return;
 
   const rect = canvasElement.getBoundingClientRect();
