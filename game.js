@@ -1204,12 +1204,6 @@ window.addEventListener("keydown", (e) => {
         aiMode = true;
         onlineMode = false;
       } else if (e.key === "4") {
-        selectedRule = 1;
-        aiMode = false;
-        onlineMode = true;
-
-      const WS_DEFAULT_URL = "wss://your-public-server.example.com";
-         } else if (e.key === "4") {
   selectedRule = 1;
   aiMode = false;
   onlineMode = true;
@@ -1217,6 +1211,7 @@ window.addEventListener("keydown", (e) => {
   // ★ 自動で黒/白を決定（先に入った人が黒）
   const playerColor = Math.random() < 0.5 ? 1 : 2;
 
+  // ★ game.js 上部で定義した WS_DEFAULT_URL を使う
   setupWebSocket(WS_DEFAULT_URL, playerColor);
 
   gameStarted = true;
@@ -1226,7 +1221,6 @@ window.addEventListener("keydown", (e) => {
   startMessageTime = performance.now();
   startFadeIn();
 }
-
 
       }
 
