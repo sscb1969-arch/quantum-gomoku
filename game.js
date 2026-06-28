@@ -79,7 +79,7 @@ const SECRET_CODE = [
 /* =========================
    WebSocket Online 対戦
    ========================= */
-const WS_DEFAULT_URL = "ws://localhost:8080";
+const WS_DEFAULT_URL = "https://quantum-gomoku.onrender.com";
 let ws = null;
 let onlineMode = false;
 let onlinePlayer = 1;
